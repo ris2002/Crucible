@@ -1,0 +1,52 @@
+services:
+  # Backend — FastAPI
+  - type: web
+    name: idea-forge-backend
+    runtime: python
+    rootDir: forge/backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    plan: free
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_PRICE_THINKER
+        sync: false
+      - key: STRIPE_PRICE_SCHOLAR
+        sync: false
+      - key: STRIPE_PRICE_TURNS
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: MONTHLY_SPEND_CAP_GBP
+        value: "100"
+
+  # Frontend — React/Vite static site
+  - type: web
+    name: idea-forge-frontend
+    runtime: static
+    rootDir: forge/frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    plan: free
+    envVars:
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false
+      - key: VITE_API_URL
+        sync: false
+      - key: VITE_STRIPE_PUBLIC_KEY
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

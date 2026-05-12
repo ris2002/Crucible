@@ -9,9 +9,11 @@ from routers import forge, ideas, users, comments, credits, payments, admin
 
 app = FastAPI(title="Forge API", version="1.0.0")
 
+frontend_urls = [u.strip() for u in os.getenv("FRONTEND_URL", "http://localhost:5173").split(",")]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[os.getenv("FRONTEND_URL", "http://localhost:5173")],
+    allow_origins=frontend_urls,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

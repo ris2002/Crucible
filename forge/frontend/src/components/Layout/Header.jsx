@@ -55,7 +55,7 @@ export default function Header() {
       <div className="header-inner">
         <Link to="/" className="header-logo">
           <span className="spark-icon">✦</span>
-          FORGE
+          CRUCIBLE
         </Link>
 
         <nav className="header-nav">

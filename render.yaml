@@ -27,6 +27,8 @@ services:
         sync: false
       - key: MONTHLY_SPEND_CAP_GBP
         value: "100"
+      - key: PYTHON_VERSION
+        value: "3.11.9"
 
   # Frontend — React/Vite static site
   - type: web

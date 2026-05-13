@@ -475,7 +475,7 @@ input, textarea {
   font-weight: 600;
 }
 
-/* Forge page */
+/* Crucible page */
 .forge-page {
   max-width: 760px;
   margin: 0 auto;
@@ -558,7 +558,7 @@ input, textarea {
   line-height: 1.6;
 }
 
-/* Forge chat */
+/* Crucible chat */
 .forge-chat {
   display: flex;
   flex-direction: column;
@@ -685,7 +685,7 @@ input, textarea {
   flex-wrap: wrap;
 }
 
-/* Forge ready draft */
+/* Crucible ready draft */
 .forge-ready {
   background: var(--white);
   border: 2px solid var(--orange);

@@ -40,7 +40,7 @@ export const api = {
   postComment: (ideaId, content, parent_id = null) =>
     request('POST', `/ideas/${ideaId}/comments`, { content, parent_id }),
 
-  // Forge
+  // Crucible
   startForge: (domain, genre, built_on_idea_id = null) =>
     request('POST', '/forge/start', { domain, genre, built_on_idea_id }),
   sendMessage: (session_id, message) =>

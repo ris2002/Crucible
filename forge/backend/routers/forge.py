@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from middleware.auth import get_current_user
 from models import (
-    ForgeStartRequest, ForgeMessageRequest, ForgePostRequest,
-    ForgeSaveDraftRequest, ForgeExtendRequest
+    CrucibleStartRequest, CrucibleMessageRequest, CruciblePostRequest,
+    CrucibleSaveDraftRequest, CrucibleExtendRequest
 )
 from services import supabase_service as db
 from services import anthropic_service as ai
@@ -15,7 +15,7 @@ router = APIRouter()
 
 
 @router.post("/start")
-async def start_forge_session(body: ForgeStartRequest, user=Depends(get_current_user)):
+async def start_forge_session(body: CrucibleStartRequest, user=Depends(get_current_user)):
     profile = db.get_profile(user.id)
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
@@ -49,7 +49,7 @@ async def start_forge_session(body: ForgeStartRequest, user=Depends(get_current_
 
 
 @router.post("/message")
-async def send_forge_message(body: ForgeMessageRequest, user=Depends(get_current_user)):
+async def send_forge_message(body: CrucibleMessageRequest, user=Depends(get_current_user)):
     if len(body.message.split()) > 500:
         raise HTTPException(status_code=400, detail="Message exceeds 500-word limit")
 
@@ -122,7 +122,7 @@ async def send_forge_message(body: ForgeMessageRequest, user=Depends(get_current
 
 
 @router.post("/stream")
-async def stream_forge_message(body: ForgeMessageRequest, user=Depends(get_current_user)):
+async def stream_forge_message(body: CrucibleMessageRequest, user=Depends(get_current_user)):
     if len(body.message.split()) > 500:
         raise HTTPException(status_code=400, detail="Message exceeds 500-word limit")
 
@@ -220,7 +220,7 @@ async def stream_forge_message(body: ForgeMessageRequest, user=Depends(get_curre
 
 
 @router.post("/post")
-async def post_idea(body: ForgePostRequest, user=Depends(get_current_user)):
+async def post_idea(body: CruciblePostRequest, user=Depends(get_current_user)):
     session = db.get_forge_session(body.session_id, user.id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -268,7 +268,7 @@ async def post_idea(body: ForgePostRequest, user=Depends(get_current_user)):
 
 
 @router.post("/save-draft")
-async def save_draft(body: ForgeSaveDraftRequest, user=Depends(get_current_user)):
+async def save_draft(body: CrucibleSaveDraftRequest, user=Depends(get_current_user)):
     session = db.get_forge_session(body.session_id, user.id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -278,7 +278,7 @@ async def save_draft(body: ForgeSaveDraftRequest, user=Depends(get_current_user)
 
 
 @router.post("/extend")
-async def extend_session(body: ForgeExtendRequest, user=Depends(get_current_user)):
+async def extend_session(body: CrucibleExtendRequest, user=Depends(get_current_user)):
     session = db.get_forge_session(body.session_id, user.id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")

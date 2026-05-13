@@ -70,7 +70,7 @@ export default function LoginPage() {
         </form>
 
         <div className="auth-footer">
-          Don't have an account? <Link to="/signup">Join Forge</Link>
+          Don't have an account? <Link to="/signup">Join Crucible</Link>
         </div>
       </div>
     </div>

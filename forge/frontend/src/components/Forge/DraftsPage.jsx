@@ -39,9 +39,9 @@ export default function DraftsPage() {
       {drafts.length === 0 ? (
         <div className="empty-state">
           <h3>No drafts yet</h3>
-          <p>Start a Forge session and save it as a draft to continue later.</p>
+          <p>Start a Crucible session and save it as a draft to continue later.</p>
           <button className="btn btn-primary mt-2" onClick={() => navigate('/forge')}>
-            Forge an idea
+            Enter the Crucible
           </button>
         </div>
       ) : (

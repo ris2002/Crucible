@@ -57,7 +57,7 @@ def create_turn_extension_checkout(user_id: str, session_id: str, frontend_url: 
     line_items = (
         [{"price": price_id, "quantity": 1}]
         if price_id else
-        [{"price_data": {"currency": "gbp", "unit_amount": 200, "product_data": {"name": "Forge Turn Extension (+4 turns)"}}, "quantity": 1}]
+        [{"price_data": {"currency": "gbp", "unit_amount": 200, "product_data": {"name": "Crucible Turn Extension (+4 turns)"}}, "quantity": 1}]
     )
     checkout = stripe.checkout.Session.create(
         mode="payment",

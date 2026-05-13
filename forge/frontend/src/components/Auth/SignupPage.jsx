@@ -69,7 +69,7 @@ export default function SignupPage() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <h1 className="auth-title">Join Forge</h1>
+        <h1 className="auth-title">Join Crucible</h1>
         <p className="auth-subtitle">A place for ideas that earn their place. No shortcuts.</p>
 
         {error && <div className="error-msg mb-2">{error}</div>}
@@ -132,7 +132,7 @@ export default function SignupPage() {
         </form>
 
         <p style={{ fontSize: '0.78rem', color: 'var(--light-gray)', marginTop: '16px', lineHeight: '1.5' }}>
-          You get 3 free Forge sessions. No credit card needed.
+          You get 3 free Crucible sessions. No credit card needed.
         </p>
 
         <div className="auth-footer">

@@ -20,14 +20,14 @@ function ChatModal({ flagId, onClose }) {
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ background: 'var(--white)', borderRadius: 'var(--radius-card)', width: '90%', maxWidth: 700, maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between' }}>
-          <strong>Forge conversation</strong>
+          <strong>Crucible conversation</strong>
           <button onClick={onClose} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '1.2rem' }}>×</button>
         </div>
         <div style={{ overflowY: 'auto', padding: 20, flex: 1 }}>
           {!data ? <div>Loading...</div> : data.messages.length === 0 ? <div style={{ color: 'var(--gray)' }}>No conversation found.</div> : data.messages.map((m, i) => (
             <div key={i} style={{ marginBottom: 12 }}>
               <div style={{ fontSize: '0.7rem', fontWeight: 700, color: m.role === 'user' ? 'var(--dark)' : 'var(--orange)', textTransform: 'uppercase', marginBottom: 4 }}>
-                {m.role === 'user' ? 'User' : 'Forge AI'}
+                {m.role === 'user' ? 'User' : 'Crucible AI'}
               </div>
               <div style={{ fontSize: '0.875rem', lineHeight: 1.6, color: 'var(--dark)', background: 'var(--bg)', borderRadius: 8, padding: '10px 14px' }}>
                 {m.content}

@@ -90,8 +90,8 @@ export default function ForgePage() {
       <div className="forge-page">
         <ForgeBanner />
         <div className="upgrade-prompt">
-          <h3>Forge is for users</h3>
-          <p>Admin accounts cannot use Forge. Use the Seed Generator in the admin panel to post ideas.</p>
+          <h3>Crucible is for users</h3>
+          <p>Admin accounts cannot use the Crucible. Use the Seed Generator in the admin panel to post ideas.</p>
           <button className="btn btn-secondary" onClick={() => navigate('/admin')}>Go to admin panel</button>
         </div>
       </div>
@@ -121,7 +121,7 @@ export default function ForgePage() {
 
           {builtOnId && (
             <div className="built-on-banner" style={{ marginBottom: 20 }}>
-              Building on an existing idea. The Forge will frame questions around the original idea.
+              Building on an existing idea. The Crucible will frame questions around the original idea.
             </div>
           )}
 

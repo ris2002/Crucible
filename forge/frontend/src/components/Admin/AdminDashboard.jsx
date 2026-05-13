@@ -43,7 +43,7 @@ export default function AdminDashboard() {
         <StatCard label="Active subscriptions" value={data.active_subscriptions} />
         <StatCard label="Total ideas published" value={data.total_ideas.toLocaleString()} />
         <StatCard label="Ideas posted today" value={data.ideas_today} />
-        <StatCard label="Forge sessions today" value={data.sessions_today} />
+        <StatCard label="Crucible sessions today" value={data.sessions_today} />
       </div>
     </div>
   )

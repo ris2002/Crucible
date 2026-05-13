@@ -3,29 +3,29 @@ from typing import Optional, List
 from uuid import UUID
 
 
-class ForgeStartRequest(BaseModel):
+class CrucibleStartRequest(BaseModel):
     domain: str
     genre: str
     built_on_idea_id: Optional[str] = None
 
 
-class ForgeMessageRequest(BaseModel):
+class CrucibleMessageRequest(BaseModel):
     session_id: str
     message: str
 
 
-class ForgePostRequest(BaseModel):
+class CruciblePostRequest(BaseModel):
     session_id: str
     title: str
     summary: str
     tags: List[str]
 
 
-class ForgeSaveDraftRequest(BaseModel):
+class CrucibleSaveDraftRequest(BaseModel):
     session_id: str
 
 
-class ForgeExtendRequest(BaseModel):
+class CrucibleExtendRequest(BaseModel):
     session_id: str
 
 
@@ -50,7 +50,7 @@ class ProfileUpdateRequest(BaseModel):
     bio: Optional[str] = None
 
 
-class ForgeSessionResponse(BaseModel):
+class CrucibleSessionResponse(BaseModel):
     session_id: str
     turns_used: int
     max_turns: int
@@ -63,7 +63,7 @@ class ForgeSessionResponse(BaseModel):
     draft_tags: Optional[List[str]] = None
 
 
-class ForgeMessageResponse(BaseModel):
+class CrucibleMessageResponse(BaseModel):
     reply: str
     turns_used: int
     max_turns: int

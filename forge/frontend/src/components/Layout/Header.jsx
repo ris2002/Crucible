@@ -64,7 +64,7 @@ export default function Header() {
               <CreditDisplay />
               {profile?.tier !== 'admin' && (
                 <Link to="/forge" className={`btn btn-primary btn-sm`}>
-                  Forge an Idea
+                  Enter the Crucible
                 </Link>
               )}
               <Link to="/drafts" className={isActive('/drafts')}>Drafts</Link>
@@ -84,7 +84,7 @@ export default function Header() {
           ) : (
             <>
               <Link to="/login" className={isActive('/login')}>Sign in</Link>
-              <Link to="/signup" className="btn btn-primary btn-sm">Join Forge</Link>
+              <Link to="/signup" className="btn btn-primary btn-sm">Join Crucible</Link>
             </>
           )}
         </nav>

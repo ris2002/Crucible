@@ -5,7 +5,7 @@ import { useCredits } from '../../hooks/useCredits'
 import { api } from '../../lib/api'
 
 const TIERS = [
-  { id: 'free', name: 'Free', price: '£0', sessions: '3 lifetime', turns: '5 turns/session', note: 'Enough to experience Forge' },
+  { id: 'free', name: 'Free', price: '£0', sessions: '3 lifetime', turns: '5 turns/session', note: 'Enough to experience Crucible' },
   { id: 'thinker', name: 'Thinker', price: '£4/month', sessions: '10/month', turns: '8 turns/session', note: 'Unused credits roll over (max 20)' },
   { id: 'scholar', name: 'Scholar', price: '£9/month', sessions: '25/month', turns: '8 turns/session', note: 'Unused credits roll over (max 50)' },
 ]

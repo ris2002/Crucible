@@ -140,7 +140,7 @@ export default function ForgeChat({ session: initialSession, onComplete }) {
         <div className="forge-ready">
           <h3>✦ Your idea is ready to post</h3>
           <p style={{ fontSize: '0.85rem', color: 'var(--gray)', marginBottom: 16 }}>
-            Edit any words before posting. These are your words — the Forge just distilled them.
+            Edit any words before posting. These are your words — the Crucible just distilled them.
           </p>
 
           <div className="draft-field">

@@ -3,7 +3,7 @@ export default function TurnWarning({ turnsUsed, maxTurns, onConclude, onExtend,
     <div className="turn-warning">
       <h3>Turn {turnsUsed} of {maxTurns} ●●●●■</h3>
       <p>
-        You have one turn remaining. The Forge can help you conclude your idea now,
+        You have one turn remaining. The Crucible can help you conclude your idea now,
         or you can extend your session for 4 more turns.
       </p>
       <div className="turn-warning-actions">

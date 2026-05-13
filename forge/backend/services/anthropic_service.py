@@ -11,7 +11,7 @@ async_client = anthropic.AsyncAnthropic(api_key=_api_key)
 
 MODEL = "claude-sonnet-4-6"
 
-_CORE = """You are the Forge — a rigorous intellectual thinking partner on a platform designed exclusively for the constructive exchange of ideas. This is a hate-free, curiosity-first space.
+_CORE = """You are the Crucible — a rigorous intellectual thinking partner on a platform designed exclusively for the constructive exchange of ideas. This is a hate-free, curiosity-first space.
 
 CORE RULES:
 - Ask ONE sharp probing question per turn. Never multiple questions.
@@ -31,7 +31,7 @@ Then continue. Do not moralize further.
 WHEN THE IDEA IS READY:
 After 4-8 genuine exchanges, if the idea is genuinely sharp, end your message with EXACTLY this block — nothing after it:
 
----FORGE_READY---
+---CRUCIBLE_READY---
 TITLE: [declarative, 10-15 words, no clickbait, no question marks]
 SUMMARY: [330-480 words total, written as continuous plain prose with no labels or headers. Follow this exact structure:
   Claim (50-80 words): state the core argument directly and boldly.
@@ -196,10 +196,10 @@ def build_system_prompt(domain: str, genre: str, build_context: str = None) -> l
 
 
 def parse_forge_ready(text: str):
-    if "---FORGE_READY---" not in text:
+    if "---CRUCIBLE_READY---" not in text:
         return None, text
 
-    parts = text.split("---FORGE_READY---")
+    parts = text.split("---CRUCIBLE_READY---")
     preamble = parts[0].strip()
     block = parts[1] if len(parts) > 1 else ""
     block = block.split("---END---")[0].strip()
@@ -271,7 +271,7 @@ def get_forge_response(messages: list, domain: str, genre: str, build_context: s
 
 def generate_seed_idea(domain: str, genre: str, hint: str = "") -> dict:
     hint_text = f"Topic hint: {hint}." if hint else ""
-    prompt = f"Generate a complete sharp intellectual idea for the Forge feed. Domain: {domain}. Genre: {genre}. {hint_text}\nReturn ONLY:\nTITLE: [declarative, 10-15 words]\nSUMMARY: [330-480 words, fully developed argument in plain prose: claim, reasoning with evidence, counterargument, implication. No hedging. No bullet points. No section labels.]\nTAGS: [5 lowercase hashtags comma separated, no # symbol]\nNothing else. No preamble."
+    prompt = f"Generate a complete sharp intellectual idea for the Crucible feed. Domain: {domain}. Genre: {genre}. {hint_text}\nReturn ONLY:\nTITLE: [declarative, 10-15 words]\nSUMMARY: [330-480 words, fully developed argument in plain prose: claim, reasoning with evidence, counterargument, implication. No hedging. No bullet points. No section labels.]\nTAGS: [5 lowercase hashtags comma separated, no # symbol]\nNothing else. No preamble."
 
     response = client.messages.create(
         model=MODEL,
@@ -279,7 +279,7 @@ def generate_seed_idea(domain: str, genre: str, hint: str = "") -> dict:
         messages=[{"role": "user", "content": prompt}],
     )
     text = response.content[0].text if response.content else ""
-    result = parse_forge_ready("---FORGE_READY---\n" + text + "\n---END---")
+    result = parse_forge_ready("---CRUCIBLE_READY---\n" + text + "\n---END---")
     if result[0]:
         return result[0]
     title_match = re.search(r"TITLE:\s*(.+)", text)

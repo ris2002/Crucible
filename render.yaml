@@ -1,7 +1,7 @@
 services:
   # Backend — FastAPI
   - type: web
-    name: idea-forge-backend
+    name: crucible-backend
     runtime: python
     rootDir: forge/backend
     buildCommand: pip install -r requirements.txt
@@ -32,7 +32,7 @@ services:
 
   # Frontend — React/Vite static site
   - type: web
-    name: idea-forge-frontend
+    name: crucible-frontend
     runtime: static
     rootDir: forge/frontend
     buildCommand: npm install && npm run build

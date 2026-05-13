@@ -111,7 +111,7 @@ export function useForge() {
                 const updated = [...prev]
                 const last = updated[updated.length - 1]
                 if (last?.role === 'assistant') {
-                  const content = last.content.split('---FORGE_READY---')[0].trim()
+                  const content = last.content.split('---CRUCIBLE_READY---')[0].trim()
                   updated[updated.length - 1] = { ...last, content }
                 }
                 return updated

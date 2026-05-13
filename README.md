@@ -1,6 +1,6 @@
-# FORGE — Intellectual Ideas Platform
+# CRUCIBLE — Intellectual Ideas Platform
 
-A full-stack platform for forging, sharing, and discussing ideas. Users converse with an AI thinking partner (the Forge) across 8 intellectual genres to develop rough thoughts into publishable ideas. The platform includes a social feed, comments, sparks, follows, a credit/subscription system, and a full admin panel.
+A full-stack platform for forging, sharing, and discussing ideas. Users converse with an AI thinking partner (the Crucible) across 8 intellectual genres to develop rough thoughts into publishable ideas. The platform includes a social feed, comments, sparks, follows, a credit/subscription system, and a full admin panel.
 
 ---
 
@@ -32,7 +32,7 @@ IdeaForage/
 │   │   ├── middleware/
 │   │   │   └── auth.py            # JWT auth via Supabase
 │   │   ├── routers/
-│   │   │   ├── forge.py           # Forge session endpoints
+│   │   │   ├── forge.py           # Crucible session endpoints
 │   │   │   ├── ideas.py           # Feed, idea detail, sparks, comments
 │   │   │   ├── users.py           # Profiles, follows, notifications
 │   │   │   ├── comments.py        # Comment sparks and reports
@@ -53,7 +53,7 @@ IdeaForage/
 │           │   └── supabase.js    # Supabase client
 │           ├── hooks/
 │           │   ├── useAuth.js     # Auth state + profile
-│           │   ├── useForge.js    # Forge session state + streaming
+│           │   ├── useForge.js    # Crucible session state + streaming
 │           │   └── useCredits.js  # Credit balance
 │           └── components/
 │               ├── Layout/Header.jsx
@@ -150,7 +150,7 @@ Auto-created on signup via Supabase trigger.
 | `tier` | TEXT | `free` / `thinker` / `scholar` / `admin` |
 | `credits_remaining` | INT | Default 3 |
 | `credits_monthly` | INT | Default 3 |
-| `lifetime_sessions_used` | INT | Incremented on Forge session start |
+| `lifetime_sessions_used` | INT | Incremented on Crucible session start |
 | `stripe_customer_id` | TEXT | Set on first Stripe checkout |
 | `is_admin` | BOOLEAN | Must be set manually in Supabase for admin access |
 | `banned` | BOOLEAN | Set by admin |
@@ -187,7 +187,7 @@ Auto-created on signup via Supabase trigger.
 | `turns_used` | INT | Default 0 |
 | `max_turns_extended` | INT | Set after turn extension purchase |
 | `built_on_idea_id` | UUID | FK → ideas (optional) |
-| `draft_title` | TEXT | Set when FORGE_READY triggered |
+| `draft_title` | TEXT | Set when CRUCIBLE_READY triggered |
 | `draft_summary` | TEXT | |
 | `draft_tags` | TEXT[] | |
 | `status` | TEXT | `active` / `draft` / `posted` / `abandoned` |
@@ -294,9 +294,9 @@ Constraint: `follower_id != following_id`.
 | `free` | 3 | 5 | Default on signup |
 | `thinker` | 10 | 8 | Paid subscription |
 | `scholar` | 25 | 8 | Paid subscription |
-| `admin` | 20 | 10 | Cannot use Forge; uses seed generator |
+| `admin` | 20 | 10 | Cannot use the Crucible; uses seed generator |
 
-**Credits** are deducted only when posting an idea (1 credit per post). Starting or abandoning a Forge session is free. Credits accumulate — resubscribing adds new credits on top of existing balance. Cancellation keeps remaining credits but drops the monthly allocation to 3 (free tier).
+**Credits** are deducted only when posting an idea (1 credit per post). Starting or abandoning a Crucible session is free. Credits accumulate — resubscribing adds new credits on top of existing balance. Cancellation keeps remaining credits but drops the monthly allocation to 3 (free tier).
 
 **Turn extensions** (+4 turns) can be purchased mid-session for £2 via Stripe.
 
@@ -311,7 +311,7 @@ All authenticated endpoints require `Authorization: Bearer <supabase_jwt>` heade
 ### Forge — `/forge`
 
 #### `POST /forge/start`
-Start a new Forge session.
+Start a new Crucible session.
 
 **Body:**
 ```json
@@ -360,7 +360,7 @@ Send a message and receive the AI response as a Server-Sent Events stream.
 }
 ```
 
-**SSE Events — done with FORGE_READY:**
+**SSE Events — done with CRUCIBLE_READY:**
 ```json
 {
   "done": true,
@@ -628,7 +628,7 @@ Permanently delete user and their auth account. Requires username confirmation.
 
 ---
 
-## The Forge System
+## The Crucible System
 
 ### How a session works
 
@@ -636,7 +636,7 @@ Permanently delete user and their auth account. Requires username confirmation.
 2. A session is created in `forge_sessions`. No credit is deducted yet.
 3. User sends messages. Each message calls `POST /forge/stream` which streams the AI response token by token via SSE.
 4. The AI asks one sharp probing question per turn, staying strictly within the chosen genre.
-5. After 4-8 exchanges, if the idea has earned it, the AI returns a `---FORGE_READY---` block with a title, 330-480 word summary, and 5 tags.
+5. After 4-8 exchanges, if the idea has earned it, the AI returns a `---CRUCIBLE_READY---` block with a title, 330-480 word summary, and 5 tags.
 6. User edits the draft and clicks **Post to Feed — 1 credit**. Credit deducted here only.
 
 ### Genres and AI roles
@@ -652,7 +652,7 @@ Permanently delete user and their auth account. Requires username confirmation.
 | Concept | Usefulness auditor | Genuinely useful vs merely interesting — test with concrete examples and edge cases |
 | Challenge | Devil's advocate | Steel-man the conventional view first, then test whether the challenge survives |
 
-### FORGE_READY summary structure
+### CRUCIBLE_READY summary structure
 
 When the AI decides the idea is ready, the generated summary always follows this structure (written as continuous prose with no labels):
 
@@ -727,7 +727,7 @@ Copy the webhook signing secret into `STRIPE_WEBHOOK_SECRET`.
 
 ## LLM Cost Minimisation
 
-Running Claude Sonnet on every Forge turn is the biggest cost driver in the platform. The following strategies are layered together to keep it under control.
+Running Claude Sonnet on every Crucible turn is the biggest cost driver in the platform. The following strategies are layered together to keep it under control.
 
 ---
 
@@ -764,7 +764,7 @@ Keep each conversational response under 350 words. Always end with a complete se
 
 This is a behavioural guardrail that sits above the hard token cap. Because the model tries to comply, most turns generate 150-250 output tokens rather than pushing toward the 1000-token ceiling. **You only pay for tokens actually generated** — so if the model writes 200 words, you pay for ~260 tokens, not 1000.
 
-The FORGE_READY turn is intentionally exempt from this limit since the summary needs 330-480 words. That one turn will use more tokens, but it only happens once per session.
+The CRUCIBLE_READY turn is intentionally exempt from this limit since the summary needs 330-480 words. That one turn will use more tokens, but it only happens once per session.
 
 ---
 
@@ -831,7 +831,7 @@ This gives full visibility into where spend is going before it becomes a problem
 
 ### 7. Credit System as a Rate Limiter
 
-Credits are deducted only on posting (1 credit per idea). Free users get 3 credits per month, meaning at most 3 Forge sessions result in a posted idea. However, a user could start many sessions without posting — so the turn limits (point 5) are the primary guard against token abuse in abandoned sessions.
+Credits are deducted only on posting (1 credit per idea). Free users get 3 credits per month, meaning at most 3 Crucible sessions result in a posted idea. However, a user could start many sessions without posting — so the turn limits (point 5) are the primary guard against token abuse in abandoned sessions.
 
 ---
 
@@ -853,7 +853,7 @@ Credits are deducted only on posting (1 credit per idea). Free users get 3 credi
 - All secrets in environment variables — never committed to source control
 - Supabase RLS enforces row-level access on all tables
 - Admin endpoints query `is_admin` from the database on every request — it is not stored in the JWT
-- Input cap: 500 words per Forge message, enforced on the backend
+- Input cap: 500 words per Crucible message, enforced on the backend
 - CORS restricted to explicit origins via `FRONTEND_URL`
 - Stripe webhook signature verified on every inbound webhook call
 - Monthly Anthropic spend cap configurable via `MONTHLY_SPEND_CAP_GBP`

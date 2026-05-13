@@ -63,7 +63,7 @@ export default function FeedPage() {
             className="btn btn-primary btn-sm"
             onClick={() => navigate('/forge')}
           >
-            ✦ Forge an Idea
+            ✦ Enter the Crucible
           </button>
         )}
       </div>
@@ -108,7 +108,7 @@ export default function FeedPage() {
           <p>
             {followingOnly
               ? 'Follow some thinkers to see their ideas here.'
-              : 'Be the first to forge an idea.'}
+              : 'Be the first to enter the Crucible.'}
           </p>
         </div>
       ) : (

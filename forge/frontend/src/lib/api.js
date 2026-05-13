@@ -45,6 +45,18 @@ export const api = {
     request('POST', '/forge/start', { domain, genre, built_on_idea_id }),
   sendMessage: (session_id, message) =>
     request('POST', '/forge/message', { session_id, message }),
+  streamMessage: async (session_id, message) => {
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token
+    return fetch(`${API_URL}/forge/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ session_id, message }),
+    })
+  },
   postIdea: (session_id, title, summary, tags) =>
     request('POST', '/forge/post', { session_id, title, summary, tags }),
   saveDraft: (session_id) =>

@@ -1,3 +1,4 @@
+import os
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from middleware.auth import get_current_user
@@ -177,10 +178,8 @@ async def post_seed_idea(body: dict, admin=Depends(require_admin)):
     if not admin_profile.data or admin_profile.data.get("credits_remaining", 0) < 1:
         raise HTTPException(status_code=402, detail="No seed credits remaining this month")
 
-    author_id = "00000000-0000-0000-0000-000000000001"
-
     result = db.supabase_admin.table("ideas").insert({
-        "author_id": author_id,
+        "author_id": admin.id,
         "title": body.get("title", ""),
         "summary": body.get("summary", ""),
         "domain": body.get("domain", "Technology"),

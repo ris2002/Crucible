@@ -1,6 +1,6 @@
-# FORGE
+# FORGE — Intellectual Ideas Platform
 
-An intellectual ideas platform where users develop and publish ideas through AI-assisted conversations. Built with React, FastAPI, Supabase, Stripe, and Anthropic Claude.
+A full-stack platform for forging, sharing, and discussing ideas. Users converse with an AI thinking partner (the Forge) across 8 intellectual genres to develop rough thoughts into publishable ideas. The platform includes a social feed, comments, sparks, follows, a credit/subscription system, and a full admin panel.
 
 ---
 
@@ -8,61 +8,104 @@ An intellectual ideas platform where users develop and publish ideas through AI-
 
 | Layer | Technology |
 |---|---|
-| Frontend | React 18 + Vite |
+| Frontend | React 18, Vite, React Router v6 |
 | Backend | FastAPI (Python 3.11) |
-| Database | Supabase (PostgreSQL) |
-| Auth | Supabase Auth |
+| Database | Supabase (PostgreSQL + Auth + RLS) |
 | AI | Anthropic Claude Sonnet 4.6 |
-| Payments | Stripe Checkout |
-| Styling | CSS custom properties |
+| Payments | Stripe (subscriptions + one-time payments) |
+| Hosting | Render (backend) + Vercel or Render static (frontend) |
 
 ---
 
 ## Project Structure
 
 ```
-forge/
-├── backend/
-│   ├── main.py                  # FastAPI app, CORS, router registration
-│   ├── middleware/
-│   │   └── auth.py              # JWT verification, get_current_user / get_optional_user
-│   ├── models.py                # Pydantic request models
-│   ├── routers/
-│   │   ├── admin.py             # Admin-only endpoints
-│   │   ├── comments.py          # Comment sparks and reports
-│   │   ├── credits.py           # Credit balance and notifications
-│   │   ├── forge.py             # AI forge session management
-│   │   ├── ideas.py             # Feed, idea detail, sparks, reports
-│   │   ├── payments.py          # Stripe subscriptions and turn extensions
-│   │   └── users.py             # Profiles, follows, notifications
-│   ├── services/
-│   │   ├── anthropic_service.py # Claude API integration
-│   │   ├── stripe_service.py    # Stripe checkout and webhook handling
-│   │   └── supabase_service.py  # All database operations
-│   └── .env                     # Environment variables (not committed)
-├── frontend/
-│   └── src/
-│       ├── components/
-│       │   ├── Admin/           # Admin panel pages
-│       │   ├── Auth/            # Login, signup, password reset
-│       │   ├── Comments/        # Comment section
-│       │   ├── Feed/            # Feed, idea cards, filters
-│       │   ├── Forge/           # AI forge chat and drafts
-│       │   ├── Layout/          # Header, footer
-│       │   ├── Notifications/   # Notifications page
-│       │   └── Profile/         # Profile and settings pages
-│       ├── hooks/
-│       │   ├── useAuth.js       # Auth state and profile
-│       │   ├── useCredits.js    # Credit balance and tier
-│       │   └── useForge.js      # Forge session state with localStorage persistence
-│       └── lib/
-│           ├── api.js           # All frontend → backend API calls
-│           ├── adminApi.js      # Admin-specific API calls
-│           └── supabase.js      # Supabase client
-├── schema.sql                   # Main database schema
-├── admin_schema.sql             # Admin tables and columns
-└── seed_ideas.sql               # forge_team seed account and ideas
+IdeaForage/
+├── render.yaml                    # Render deployment config
+├── forge/
+│   ├── schema.sql                 # Full DB schema
+│   ├── backend/
+│   │   ├── main.py                # FastAPI app entry point
+│   │   ├── models.py              # Pydantic request/response models
+│   │   ├── requirements.txt
+│   │   ├── .env                   # Local env vars (never committed)
+│   │   ├── middleware/
+│   │   │   └── auth.py            # JWT auth via Supabase
+│   │   ├── routers/
+│   │   │   ├── forge.py           # Forge session endpoints
+│   │   │   ├── ideas.py           # Feed, idea detail, sparks, comments
+│   │   │   ├── users.py           # Profiles, follows, notifications
+│   │   │   ├── comments.py        # Comment sparks and reports
+│   │   │   ├── credits.py         # Credit balance and history
+│   │   │   ├── payments.py        # Stripe subscriptions and webhooks
+│   │   │   └── admin.py           # Admin-only panel endpoints
+│   │   └── services/
+│   │       ├── anthropic_service.py  # Claude AI + genre prompts
+│   │       ├── supabase_service.py   # All DB operations
+│   │       └── stripe_service.py     # Stripe API operations
+│   └── frontend/
+│       ├── package.json
+│       ├── vite.config.js
+│       └── src/
+│           ├── App.jsx            # Routes and auth provider
+│           ├── lib/
+│           │   ├── api.js         # All API calls
+│           │   └── supabase.js    # Supabase client
+│           ├── hooks/
+│           │   ├── useAuth.js     # Auth state + profile
+│           │   ├── useForge.js    # Forge session state + streaming
+│           │   └── useCredits.js  # Credit balance
+│           └── components/
+│               ├── Layout/Header.jsx
+│               ├── Feed/
+│               │   ├── FeedPage.jsx
+│               │   ├── FilterBar.jsx
+│               │   └── IdeaDetailPage.jsx
+│               ├── Forge/
+│               │   ├── ForgePage.jsx
+│               │   ├── ForgeChat.jsx
+│               │   ├── ForgeBanner.jsx
+│               │   ├── TurnIndicator.jsx
+│               │   └── TurnWarning.jsx
+│               ├── Auth/
+│               │   ├── LoginPage.jsx
+│               │   ├── SignupPage.jsx
+│               │   ├── ForgotPasswordPage.jsx
+│               │   └── ResetPasswordPage.jsx
+│               ├── Profile/ProfilePage.jsx
+│               ├── Settings/SettingsPage.jsx
+│               ├── Notifications/NotificationsPage.jsx
+│               ├── Drafts/DraftsPage.jsx
+│               └── Admin/AdminPage.jsx
 ```
+
+---
+
+## Local Setup
+
+### Backend
+
+```bash
+cd forge/backend
+python -m venv venv
+source venv/bin/activate         # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env             # fill in your keys
+uvicorn main:app --reload
+```
+
+Backend runs at `http://localhost:8000`. Swagger docs at `http://localhost:8000/docs`.
+
+### Frontend
+
+```bash
+cd forge/frontend
+npm install
+cp .env.example .env.local       # fill in your keys
+npm run dev
+```
+
+Frontend runs at `http://localhost:5173`.
 
 ---
 
@@ -73,56 +116,189 @@ forge/
 | Variable | Description |
 |---|---|
 | `ANTHROPIC_API_KEY` | Anthropic API key for Claude |
-| `SUPABASE_URL` | Supabase project URL |
+| `SUPABASE_URL` | Your Supabase project URL |
 | `SUPABASE_SERVICE_KEY` | Supabase service role key (bypasses RLS) |
-| `STRIPE_SECRET_KEY` | Stripe secret key |
-| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret |
-| `STRIPE_PRICE_THINKER` | Stripe price ID for Thinker tier |
-| `STRIPE_PRICE_SCHOLAR` | Stripe price ID for Scholar tier |
-| `FRONTEND_URL` | Frontend origin for CORS and redirects |
-| `MONTHLY_SPEND_CAP_GBP` | Monthly API spend cap shown in admin panel |
+| `STRIPE_SECRET_KEY` | Stripe secret key (`sk_test_...` or `sk_live_...`) |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret (`whsec_...`) |
+| `STRIPE_PRICE_THINKER` | Stripe Price ID for Thinker monthly plan |
+| `STRIPE_PRICE_SCHOLAR` | Stripe Price ID for Scholar monthly plan |
+| `STRIPE_PRICE_TURNS` | Stripe Price ID for turn extension (+4 turns, £2) |
+| `FRONTEND_URL` | Comma-separated allowed origins e.g. `http://localhost:5173,https://yourapp.vercel.app` |
+| `MONTHLY_SPEND_CAP_GBP` | Monthly Anthropic spend cap in GBP (default: `100`) |
 
-### Frontend (`forge/frontend/.env`)
+### Frontend (`forge/frontend/.env.local`)
 
 | Variable | Description |
 |---|---|
-| `VITE_SUPABASE_URL` | Supabase project URL |
-| `VITE_SUPABASE_ANON_KEY` | Supabase anon key |
-| `VITE_API_URL` | Backend URL (default: http://localhost:8000) |
+| `VITE_SUPABASE_URL` | Your Supabase project URL |
+| `VITE_SUPABASE_ANON_KEY` | Supabase anon/public key |
+| `VITE_API_URL` | Backend URL e.g. `http://localhost:8000` |
+| `VITE_STRIPE_PUBLIC_KEY` | Stripe publishable key (`pk_test_...` or `pk_live_...`) |
 
 ---
 
-## Running Locally
+## Database Schema
 
-```bash
-# Backend
-cd forge/backend
-python -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
-python -m uvicorn main:app --reload --port 8000
+### `profiles`
+Auto-created on signup via Supabase trigger.
 
-# Frontend
-cd forge/frontend
-npm install
-npm run dev
-```
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID | References `auth.users` |
+| `username` | TEXT UNIQUE | Set on signup |
+| `bio` | TEXT | Max 160 chars |
+| `tier` | TEXT | `free` / `thinker` / `scholar` / `admin` |
+| `credits_remaining` | INT | Default 3 |
+| `credits_monthly` | INT | Default 3 |
+| `lifetime_sessions_used` | INT | Incremented on Forge session start |
+| `stripe_customer_id` | TEXT | Set on first Stripe checkout |
+| `is_admin` | BOOLEAN | Must be set manually in Supabase for admin access |
+| `banned` | BOOLEAN | Set by admin |
+| `soft_deleted` | BOOLEAN | Set by admin, hides ideas |
+| `created_at` | TIMESTAMPTZ | |
+
+### `ideas`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID | PK |
+| `author_id` | UUID | FK → profiles |
+| `title` | TEXT | 10-15 words |
+| `summary` | TEXT | 330-480 words |
+| `domain` | TEXT | One of 12 domains |
+| `genre` | TEXT | One of 8 genres |
+| `tags` | TEXT[] | Up to 5 hashtags |
+| `spark_count` | INT | Default 0 |
+| `comment_count` | INT | Default 0 |
+| `build_count` | INT | Default 0 |
+| `built_on_idea_id` | UUID | FK → ideas (optional) |
+| `status` | TEXT | `published` / `draft` |
+| `created_at` | TIMESTAMPTZ | |
+
+### `forge_sessions`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID | PK |
+| `user_id` | UUID | FK → profiles |
+| `domain` | TEXT | |
+| `genre` | TEXT | |
+| `messages` | JSONB | Array of `{role, content}` |
+| `turns_used` | INT | Default 0 |
+| `max_turns_extended` | INT | Set after turn extension purchase |
+| `built_on_idea_id` | UUID | FK → ideas (optional) |
+| `draft_title` | TEXT | Set when FORGE_READY triggered |
+| `draft_summary` | TEXT | |
+| `draft_tags` | TEXT[] | |
+| `status` | TEXT | `active` / `draft` / `posted` / `abandoned` |
+| `idea_id` | UUID | FK → ideas, set after posting |
+| `input_tokens` | INT | Cumulative input tokens used |
+| `output_tokens` | INT | Cumulative output tokens used |
+| `ai_redirect_triggered` | BOOLEAN | True if hate/inflammatory redirect fired |
+| `created_at` | TIMESTAMPTZ | |
+| `updated_at` | TIMESTAMPTZ | |
+
+### `comments`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID | PK |
+| `author_id` | UUID | FK → profiles |
+| `idea_id` | UUID | FK → ideas |
+| `parent_id` | UUID | FK → comments (for replies) |
+| `content` | TEXT | Minimum 50 words enforced |
+| `word_count` | INT | |
+| `spark_count` | INT | Default 0 |
+| `created_at` | TIMESTAMPTZ | |
+
+### `sparks`
+Unified table for both idea sparks and comment sparks.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID | PK |
+| `user_id` | UUID | FK → profiles |
+| `idea_id` | UUID | FK → ideas (nullable) |
+| `comment_id` | UUID | FK → comments (nullable) |
+| `created_at` | TIMESTAMPTZ | |
+
+Constraint: exactly one of `idea_id` or `comment_id` must be set.
+
+### `follows`
+
+| Column | Type | Notes |
+|---|---|---|
+| `follower_id` | UUID | FK → profiles |
+| `following_id` | UUID | FK → profiles |
+| `created_at` | TIMESTAMPTZ | |
+
+Constraint: `follower_id != following_id`.
+
+### `notifications`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID | PK |
+| `user_id` | UUID | Recipient |
+| `type` | TEXT | `spark` / `comment` / `build` / `follow` / `new_idea_from_follow` |
+| `actor_id` | UUID | FK → profiles (who triggered it) |
+| `idea_id` | UUID | FK → ideas (optional) |
+| `comment_id` | UUID | FK → comments (optional) |
+| `read` | BOOLEAN | Default false |
+| `created_at` | TIMESTAMPTZ | |
+
+### `credit_transactions`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID | PK |
+| `user_id` | UUID | FK → profiles |
+| `amount` | INT | Positive = added, negative = deducted |
+| `type` | TEXT | `post` / `subscription` / `renewal` |
+| `description` | TEXT | |
+| `stripe_payment_id` | TEXT | |
+| `created_at` | TIMESTAMPTZ | |
+
+### `flagged_content`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID | PK |
+| `idea_id` | UUID | FK → ideas |
+| `reporter_id` | UUID | FK → profiles (null if system-triggered) |
+| `reason` | TEXT | `spam` / `misinformation` / `harassment` / `off-topic` / `other` / `ai_redirect` / `keyword_match` |
+| `reason_detail` | TEXT | Optional free-text detail |
+| `triggered_by` | TEXT | `user` or `system` |
+| `reviewed` | BOOLEAN | Default false |
+| `dismissed` | BOOLEAN | Default false |
+| `created_at` | TIMESTAMPTZ | |
+
+### `admin_actions`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID | PK |
+| `admin_email` | TEXT | |
+| `action_type` | TEXT | `dismiss_flag` / `delete_idea` / `ban_user` / `adjust_credits` / `change_tier` / `seed_post` / `soft_delete` / `unban` / `hard_delete` |
+| `target_type` | TEXT | `flag` / `idea` / `user` |
+| `target_id` | TEXT | |
+| `notes` | TEXT | |
+| `created_at` | TIMESTAMPTZ | |
 
 ---
 
-## Tiers
+## Tier System
 
-| Tier | Credits/month | Turns/session | Notes |
+| Tier | Credits/Month | Turns/Session | Notes |
 |---|---|---|---|
-| `free` | 3 lifetime | 5 | Default on signup |
-| `thinker` | 10 | 8 | £4/month via Stripe |
-| `scholar` | 25 | 8 | £9/month via Stripe |
-| `admin` | 20 | 10 | Manually granted, seed posting only |
+| `free` | 3 | 5 | Default on signup |
+| `thinker` | 10 | 8 | Paid subscription |
+| `scholar` | 25 | 8 | Paid subscription |
+| `admin` | 20 | 10 | Cannot use Forge; uses seed generator |
 
-**Credit rules:**
-- 1 credit is deducted when an idea is posted to the feed
-- On cancellation: tier drops to free immediately, banked credits are kept
-- On resubscription: `credits_remaining = credits_remaining + tier_monthly_allowance`
-- Monthly renewals add the tier allowance on top of existing credits
+**Credits** are deducted only when posting an idea (1 credit per post). Starting or abandoning a Forge session is free. Credits accumulate — resubscribing adds new credits on top of existing balance. Cancellation keeps remaining credits but drops the monthly allocation to 3 (free tier).
+
+**Turn extensions** (+4 turns) can be purchased mid-session for £2 via Stripe.
 
 ---
 
@@ -132,525 +308,552 @@ All authenticated endpoints require `Authorization: Bearer <supabase_jwt>` heade
 
 ---
 
-### Feed & Ideas — `/ideas`
-
-#### `GET /ideas`
-Returns paginated published ideas with optional filters.
-
-| Query Param | Type | Description |
-|---|---|---|
-| `domain` | string | Filter by domain (e.g. Technology) |
-| `genre` | string | Filter by genre (e.g. Problem) |
-| `sort` | string | `recent` (default) or `sparked` |
-| `page` | int | Page number, default 1, 20 per page |
-| `following` | bool | If true, only show ideas from followed users (requires auth) |
-| `username` | string | Filter by author username |
-| `date_from` | string | ISO date — show ideas on or after this date |
-| `date_to` | string | ISO date — show ideas on or before this date |
-
-**Response:** `{ ideas, total, page, pages, per_page }`
-
-Each idea includes `author_username`, `author_tier`, `user_has_sparked`.
-
----
-
-#### `GET /ideas/{idea_id}`
-Returns full idea detail including built-on parent if applicable.
-
-**Response:** Idea object with `author_username`, `user_has_sparked`, `is_author`, and `built_on` (parent idea info if forged on top of another).
-
----
-
-#### `POST /ideas/{idea_id}/spark`
-Toggles a spark (like) on an idea. Creates a notification for the idea author.
-
-**Auth required.**
-**Response:** `{ sparked: bool, spark_count: int }`
-
----
-
-#### `POST /ideas/{idea_id}/report`
-Reports an idea to the admin flagged content queue.
-
-**Auth required.**
-
-| Body Field | Type | Description |
-|---|---|---|
-| `reason` | string | Report reason: `spam`, `misinformation`, `harassment`, `off-topic`, `other` |
-| `reason_detail` | string | Optional free text detail |
-
-**Response:** `{ message: "Reported" }`
-
----
-
-#### `GET /ideas/{idea_id}/comments`
-Returns paginated comments for an idea including nested replies.
-
-| Query Param | Type | Description |
-|---|---|---|
-| `page` | int | Page number, default 1 |
-
-**Response:** `{ comments: [...] }`
-
----
-
-#### `POST /ideas/{idea_id}/comments`
-Posts a new comment. Minimum 50 words enforced. Creates a notification for the idea author.
-
-**Auth required.**
-
-| Body Field | Type | Description |
-|---|---|---|
-| `content` | string | Comment text (min 50 words) |
-| `parent_id` | string | Optional — parent comment ID for replies |
-
-**Response:** Created comment object.
-
----
-
-### Forge (AI Sessions) — `/forge`
+### Forge — `/forge`
 
 #### `POST /forge/start`
-Creates a new AI forge session. Checks user has at least 1 credit remaining.
+Start a new Forge session.
 
-**Auth required.**
+**Body:**
+```json
+{ "domain": "Technology", "genre": "Problem", "built_on_idea_id": null }
+```
 
-| Body Field | Type | Description |
-|---|---|---|
-| `domain` | string | Idea domain (e.g. Technology) |
-| `genre` | string | Idea genre (e.g. Problem) |
-| `built_on_idea_id` | string | Optional — ID of idea being built upon |
+**Response:**
+```json
+{
+  "session_id": "uuid",
+  "turns_used": 0,
+  "max_turns": 5,
+  "domain": "Technology",
+  "genre": "Problem",
+  "messages": [],
+  "status": "active",
+  "built_on": { "id": "uuid", "title": "..." }
+}
+```
 
-**Response:** `{ session_id, turns_used, max_turns, domain, genre, messages, status, built_on }`
+**Errors:** `402` no credits, `404` profile not found.
 
 ---
 
-#### `POST /forge/message`
-Sends a message in an active forge session. Calls Claude with the full conversation history and system prompt. Detects when the idea is ready (`---FORGE_READY---` block) and extracts title, summary, and 5 tags. Tracks input/output tokens. Auto-flags sessions containing hate keywords or AI redirect phrases.
+#### `POST /forge/stream` *(primary — streaming)*
+Send a message and receive the AI response as a Server-Sent Events stream.
 
-**Auth required.**
+**Body:**
+```json
+{ "session_id": "uuid", "message": "your text" }
+```
 
-| Body Field | Type | Description |
-|---|---|---|
-| `session_id` | string | Active session ID |
-| `message` | string | User's message |
+**SSE Events — text chunk** (fires repeatedly as tokens arrive):
+```json
+{ "text": "fragment of the response" }
+```
 
-**Response:** `{ reply, turns_used, max_turns, forge_ready, draft_title, draft_summary, draft_tags, warning }`
+**SSE Events — done** (fires once at end):
+```json
+{
+  "done": true,
+  "turns_used": 3,
+  "max_turns": 5,
+  "forge_ready": false,
+  "warning": true
+}
+```
 
-`warning` is `true` on the second-to-last turn to prompt the user to wrap up.
+**SSE Events — done with FORGE_READY:**
+```json
+{
+  "done": true,
+  "turns_used": 5,
+  "max_turns": 5,
+  "forge_ready": true,
+  "warning": false,
+  "draft_title": "...",
+  "draft_summary": "...",
+  "draft_tags": ["tag1", "tag2", "tag3", "tag4", "tag5"]
+}
+```
+
+**Errors:** `400` turn limit / message over 500 words / session already posted.
+
+---
+
+#### `POST /forge/message` *(fallback — non-streaming)*
+Same logic as `/forge/stream` but returns a single JSON response after full generation.
+
+**Response:**
+```json
+{
+  "reply": "...",
+  "turns_used": 3,
+  "max_turns": 5,
+  "forge_ready": false,
+  "draft_title": null,
+  "draft_summary": null,
+  "draft_tags": null,
+  "warning": false
+}
+```
 
 ---
 
 #### `POST /forge/post`
-Posts the forged idea to the feed. Deducts 1 credit. Auto-flags if AI redirect was triggered during the session or if hate terms are detected in title/summary. Notifies followers and the original idea author if this is a build.
+Post a completed idea from a session. Deducts 1 credit.
 
-**Auth required.**
+**Body:** `{ "session_id": "uuid", "title": "...", "summary": "...", "tags": ["tag1"] }`
 
-| Body Field | Type | Description |
-|---|---|---|
-| `session_id` | string | Session to post from |
-| `title` | string | Final edited title |
-| `summary` | string | Final edited summary |
-| `tags` | string[] | Up to 5 tags |
+**Response:** `{ "idea_id": "uuid", "message": "Idea posted successfully" }`
 
-**Response:** `{ idea_id, message }`
+**Side effects:** Notifies author's followers, notifies original idea author if this is a build, auto-flags if AI redirect was triggered or hate speech keywords detected in title/summary.
 
 ---
 
 #### `POST /forge/save-draft`
-Marks a session as draft without posting.
-
-**Auth required.**
-
-| Body Field | Type | Description |
-|---|---|---|
-| `session_id` | string | Session to save |
+Save session as draft without posting. **Body:** `{ "session_id": "uuid" }`
 
 ---
 
 #### `POST /forge/extend`
-Creates a Stripe Checkout session for a £2 turn extension (+4 turns).
+Create a Stripe Checkout URL for purchasing +4 turns (£2).
 
-**Auth required.**
+**Body:** `{ "session_id": "uuid" }`
 
-| Body Field | Type | Description |
-|---|---|---|
-| `session_id` | string | Session to extend |
-
-**Response:** `{ checkout_url, checkout_id }`
+**Response:** `{ "checkout_url": "https://checkout.stripe.com/...", "checkout_id": "cs_..." }`
 
 ---
 
 #### `GET /forge/drafts`
 Returns all draft sessions for the authenticated user.
 
-**Auth required.**
-**Response:** `{ drafts: [...] }`
-
 ---
 
 #### `GET /forge/session/{session_id}`
-Returns full session state including messages and calculated `max_turns`.
-
-**Auth required.**
+Returns full session data including messages, turn counts, and draft fields.
 
 ---
 
-### Users & Profiles — `/users`
+### Ideas — `/ideas`
+
+#### `GET /ideas`
+Fetch the public feed.
+
+| Param | Type | Default | Description |
+|---|---|---|---|
+| `domain` | string | — | Filter by domain |
+| `genre` | string | — | Filter by genre |
+| `sort` | string | `recent` | `recent` or `sparked` |
+| `page` | int | 1 | Page number |
+| `limit` | int | 20 | Items per page |
+| `following` | bool | false | Only followed users' ideas |
+| `username` | string | — | Filter by author username |
+| `date_from` | string | — | ISO date lower bound |
+| `date_to` | string | — | ISO date upper bound |
+
+**Response:** `{ "ideas": [...], "total": 100, "page": 1 }`
+
+---
+
+#### `GET /ideas/{idea_id}`
+Full idea detail with author profile, parent idea (if a build), and spark status for the current user.
+
+---
+
+#### `POST /ideas/{idea_id}/spark`
+Toggle spark on/off. **Response:** `{ "sparked": true, "spark_count": 42 }`
+
+---
+
+#### `POST /ideas/{idea_id}/report`
+**Body:** `{ "reason": "spam", "reason_detail": "optional" }`
+
+Reason options: `spam`, `misinformation`, `harassment`, `off-topic`, `other`.
+
+---
+
+#### `GET /ideas/{idea_id}/comments`
+Paginated comments with nested replies. **Params:** `?page=1` (20 per page)
+
+---
+
+#### `POST /ideas/{idea_id}/comments`
+**Body:** `{ "content": "...", "parent_id": null }`
+
+---
+
+### Users — `/users`
 
 #### `GET /users/{username}`
-Returns public profile data including follower/following counts and idea count. If authenticated, also returns `is_following` and `is_self`.
-
-**Response:** `{ id, username, bio, tier, created_at, follower_count, following_count, idea_count, is_following, is_self }`
-
----
+Public profile: bio, tier, follower/following counts, idea count, follow status.
 
 #### `GET /users/{username}/ideas`
-Returns paginated published ideas by a user.
-
-| Query Param | Type | Description |
-|---|---|---|
-| `page` | int | Page number, default 1 |
-
-**Response:** `{ ideas, total, page, pages }`
-
----
+Paginated published ideas. **Params:** `?page=1`
 
 #### `POST /users/{username}/follow`
-Toggles follow/unfollow on a user. Cannot follow yourself.
-
-**Auth required.**
-**Response:** `{ is_following: bool, follower_count: int }`
-
----
+Toggle follow. **Response:** `{ "following": true }`
 
 #### `PATCH /users/me/profile`
-Updates the authenticated user's bio (max 160 characters).
+Update own bio (max 160 chars). **Body:** `{ "bio": "..." }`
 
-**Auth required.**
-
-| Body Field | Type | Description |
-|---|---|---|
-| `bio` | string | New bio text |
-
-**Response:** Updated profile object.
-
----
-
-### Credits & Notifications — `/credits`, `/notifications`
-
-#### `GET /credits`
-Returns current credit balance, tier, monthly allowance, lifetime sessions used, and last 20 credit transactions. Auto-creates a profile if one does not exist (handles new signups).
-
-**Auth required.**
-**Response:** `{ credits_remaining, credits_monthly, tier, lifetime_sessions_used, transactions }`
-
----
-
-#### `GET /notifications`
-Returns all notifications for the user with unread count. Notification types: `spark`, `comment`, `build`, `new_idea_from_follow`.
-
-**Auth required.**
-**Response:** `{ notifications, unread_count }`
-
----
+#### `GET /notifications/all`
+All notifications for the authenticated user.
 
 #### `POST /notifications/read`
-Marks a list of notification IDs as read.
-
-**Auth required.**
-
-| Body Field | Type | Description |
-|---|---|---|
-| `ids` | string[] | Notification IDs to mark read |
+**Body:** `{ "ids": ["uuid1", "uuid2"] }`
 
 ---
 
-### Comments — `/comments`
+### Credits — `/credits`
 
-#### `POST /comments/{comment_id}/spark`
-Toggles a spark on a comment.
-
-**Auth required.**
-**Response:** `{ sparked: bool, spark_count: int }`
-
----
-
-#### `POST /comments/{comment_id}/report`
-Reports a comment for moderation.
-
-**Auth required.**
-
-| Body Field | Type | Description |
-|---|---|---|
-| `reason` | string | Reason for report |
+#### `GET /credits`
+Returns current balance, tier, monthly allocation, lifetime sessions used, and recent transaction history.
 
 ---
 
 ### Payments — `/payments`
 
 #### `POST /payments/subscribe`
-Creates a Stripe Checkout session for a monthly subscription. Creates a Stripe customer if one does not exist for the user.
+Create a Stripe Checkout session. **Body:** `{ "tier": "thinker" }` or `{ "tier": "scholar" }`
 
-**Auth required.**
-
-| Body Field | Type | Description |
-|---|---|---|
-| `tier` | string | `thinker` or `scholar` |
-
-**Response:** `{ checkout_url }`
-
----
-
-#### `POST /payments/extend-turns`
-Creates a Stripe Checkout session for a £2 one-time turn extension (+4 turns).
-
-**Auth required.**
-
-| Body Field | Type | Description |
-|---|---|---|
-| `session_id` | string | Forge session to extend |
-
-**Response:** `{ checkout_url }`
+**Response:** `{ "checkout_url": "https://checkout.stripe.com/..." }`
 
 ---
 
 #### `POST /payments/webhook`
-Receives Stripe webhook events. Verifies signature using `STRIPE_WEBHOOK_SECRET`.
+Stripe webhook receiver. Register this URL in the Stripe Dashboard.
 
 Handles:
-- `checkout.session.completed` — upgrades tier and adds credits on subscription or extends turns on one-time payment
+- `checkout.session.completed` — activates subscription or turn extension
+- `customer.subscription.deleted` — reverts user to free tier
 - `invoice.payment_succeeded` — adds monthly credits on renewal
-- `customer.subscription.deleted` — drops tier to free immediately, credits unchanged
 
 ---
 
 #### `POST /payments/sync`
-Queries Stripe directly for the user's active subscription and updates tier and credits if not already current. Used on return from Stripe Checkout to avoid webhook timing issues.
-
-**Auth required.**
-**Response:** `{ synced, tier, credits }`
+Sync subscription state from Stripe directly. Call this on the success redirect page as a fallback for webhook timing delays.
 
 ---
 
 #### `POST /payments/sync-turns`
-Verifies a Stripe Checkout session by ID and extends forge turns if payment is confirmed. Used on return from turn extension checkout.
+Verify and apply a turn extension after Stripe checkout.
 
-**Auth required.**
-
-| Body Field | Type | Description |
-|---|---|---|
-| `session_id` | string | Forge session ID |
-| `checkout_id` | string | Stripe Checkout session ID |
+**Body:** `{ "session_id": "forge_session_uuid", "checkout_id": "cs_..." }`
 
 ---
 
 #### `DELETE /payments/subscription`
-Cancels the active Stripe subscription immediately. Tier drops to free at once; banked credits are kept.
-
-**Auth required.**
+Cancel active subscription immediately. User keeps current credits; tier reverts to free.
 
 ---
 
 ### Admin — `/admin`
-
-All admin endpoints require the authenticated user to have `is_admin = true` in their profile. Returns `403 Forbidden` otherwise.
-
----
+All endpoints require `is_admin = true` on the authenticated user's profile row. Returns `403` otherwise.
 
 #### `GET /admin/dashboard`
-Returns platform overview stats.
-
-**Response fields:**
-
-| Field | Description |
-|---|---|
-| `flagged_count` | Unreviewed flags in the queue |
-| `spend_today_gbp` | Total API spend today (GBP) |
-| `spend_month_gbp` | Total API spend this month (GBP) |
-| `active_users_today` | Unique users who ran a forge session today |
-| `total_users` | Total registered profiles |
-| `new_users_today` | New signups today |
-| `total_ideas` | Total published ideas |
-| `ideas_today` | Ideas published today |
-| `sessions_today` | Forge sessions started today |
-| `active_subscriptions` | Users on thinker or scholar tier |
-
----
-
-#### `GET /admin/flagged`
-Returns all unreviewed flagged content with full idea info, author, and reporter.
-
-Flags are created by three triggers:
-1. **User report** — user clicks Report on an idea
-2. **AI redirect** — Claude responded with the "more heat than light" phrase during the session
-3. **Keyword match** — hate terms detected in title or summary on post
-
----
-
-#### `GET /admin/flagged/{flag_id}/session`
-Returns the full forge conversation that led to a flagged idea, for context during review.
-
----
-
-#### `POST /admin/flagged/{flag_id}/dismiss`
-Marks a flag as reviewed and dismissed. No action taken on the content.
-
----
-
-#### `POST /admin/flagged/{flag_id}/delete-idea`
-Removes the flagged idea from the feed (sets status to draft) and marks the flag reviewed.
-
----
-
-#### `POST /admin/flagged/{flag_id}/ban-user`
-Bans the idea's author: sets `banned = true`, `soft_deleted = true`, and hides all their ideas from the feed. Marks the flag reviewed.
-
----
+Aggregate stats: flagged count, today/month spend in GBP, active users today, total/new users, total/today ideas and sessions, active subscriptions.
 
 #### `GET /admin/costs`
-Returns detailed API cost breakdown.
+Detailed cost breakdown: daily and monthly spend in GBP, % of monthly cap, hourly spend chart, top 10 most expensive sessions.
 
-**Response fields:**
+#### `GET /admin/flagged`
+All unreviewed flagged content with idea details and reporter info.
 
-| Field | Description |
-|---|---|
-| `spend_today_gbp` | Total spend today |
-| `spend_month_gbp` | Total spend this month |
-| `monthly_cap_gbp` | Cap set in env var |
-| `cap_percent` | Percentage of monthly cap used |
-| `sessions_today` | Number of forge sessions today |
-| `avg_tokens_per_session` | Average total tokens per session today |
-| `hourly` | Array of 24 hourly cost buckets |
-| `top_sessions` | Top 10 most expensive sessions today by cost |
+#### `GET /admin/flagged/{flag_id}/session`
+Full conversation transcript for the session behind a flagged idea.
 
-Cost rates used: £0.00000237 per input token, £0.00001185 per output token (Claude Sonnet 4.6 at $3/$15 per million tokens, converted at 0.79 USD/GBP).
+#### `POST /admin/flagged/{flag_id}/dismiss`
+Mark flag as reviewed and dismissed with no action.
 
----
+#### `POST /admin/flagged/{flag_id}/delete-idea`
+Set idea status to `draft` (removes from feed) and mark flag reviewed.
+
+#### `POST /admin/flagged/{flag_id}/ban-user`
+Ban the idea's author: `banned=true`, `soft_deleted=true`, all their ideas hidden.
 
 #### `POST /admin/seed/generate`
-Calls Claude to generate a draft seed idea. Does not post it — returns it for review and editing.
+Generate a seed idea draft using Claude. Does not post.
 
-| Body Field | Type | Description |
-|---|---|---|
-| `domain` | string | Idea domain |
-| `genre` | string | Idea genre |
-| `hint` | string | Optional topic hint |
+**Body:** `{ "domain": "Technology", "genre": "Observation", "hint": "optional hint" }`
 
-**Response:** `{ idea: { title, summary, tags } }`
-
----
+**Response:** `{ "idea": { "title": "...", "summary": "...", "tags": [...] } }`
 
 #### `POST /admin/seed/post`
-Posts the seed idea to the feed under the `forge_team` account. Deducts 1 credit from the admin's balance (max 20 seed posts per month).
+Post a seed idea under the admin's own account. Costs 1 credit from the admin's balance.
 
-| Body Field | Type | Description |
-|---|---|---|
-| `title` | string | Final title |
-| `summary` | string | Final summary |
-| `tags` | string[] | Up to 5 tags |
-| `domain` | string | Idea domain |
-| `genre` | string | Idea genre |
-
-**Response:** `{ idea_id, credits_remaining, message }`
-
----
+**Body:** `{ "title": "...", "summary": "...", "domain": "...", "genre": "...", "tags": [...] }`
 
 #### `GET /admin/users`
-Returns up to 100 users, optionally filtered by username or email substring. Includes email from auth, idea count, and ban status.
-
-| Query Param | Type | Description |
-|---|---|---|
-| `search` | string | Optional search string |
-
----
+List all users. **Params:** `?search=` filters by username or email.
 
 #### `GET /admin/users/{user_id}`
-Returns full user detail: profile, all ideas, last 20 credit transactions, session count, flags filed by user, and flags against user.
-
----
+Full user detail: profile, all ideas, credit transaction history, session count, reports filed by and against user.
 
 #### `POST /admin/users/{user_id}/credits`
-Sets a user's `credits_remaining` to a specific value.
-
-| Body Field | Type | Description |
-|---|---|---|
-| `credits` | int | New credit balance |
-
----
+Override credit balance. **Body:** `{ "credits": 10 }`
 
 #### `POST /admin/users/{user_id}/tier`
-Changes a user's tier.
-
-| Body Field | Type | Description |
-|---|---|---|
-| `tier` | string | `free`, `thinker`, `scholar`, or `admin` |
-
----
+Change tier. **Body:** `{ "tier": "scholar" }`
 
 #### `DELETE /admin/users/{user_id}/ideas/{idea_id}`
-Removes a specific idea from the feed (sets status to draft).
-
----
+Remove idea from feed (sets status to `draft`).
 
 #### `POST /admin/users/{user_id}/soft-delete`
-Bans a user and hides all their content. Reversible via unban.
-
----
+Soft-delete: `banned=true`, `soft_deleted=true`, all ideas hidden.
 
 #### `POST /admin/users/{user_id}/unban`
-Reverses a soft delete: clears banned flag and restores all ideas to published.
-
----
+Reverse soft-delete: restores user and republishes their ideas.
 
 #### `POST /admin/users/{user_id}/hard-delete`
-Permanently deletes a user and all their data from both the profiles table and Supabase Auth. Requires the caller to type the username as confirmation.
+Permanently delete user and their auth account. Requires username confirmation.
 
-| Body Field | Type | Description |
+**Body:** `{ "confirm_username": "their_username" }`
+
+---
+
+## Frontend Routes
+
+| Route | Component | Auth |
 |---|---|---|
-| `confirm_username` | string | Must exactly match the user's username |
+| `/` | FeedPage | No |
+| `/forge` | ForgePage | Yes |
+| `/idea/:id` | IdeaDetailPage | No |
+| `/profile/:username` | ProfilePage | No |
+| `/login` | LoginPage | No |
+| `/signup` | SignupPage | No |
+| `/forgot-password` | ForgotPasswordPage | No |
+| `/reset-password` | ResetPasswordPage | No |
+| `/notifications` | NotificationsPage | Yes |
+| `/drafts` | DraftsPage | Yes |
+| `/settings` | SettingsPage | Yes |
+| `/admin` | AdminPage | Yes + is_admin |
 
 ---
 
-## Database Schema Summary
+## The Forge System
 
-| Table | Purpose |
+### How a session works
+
+1. User selects a domain and genre, clicks **Start Forging**
+2. A session is created in `forge_sessions`. No credit is deducted yet.
+3. User sends messages. Each message calls `POST /forge/stream` which streams the AI response token by token via SSE.
+4. The AI asks one sharp probing question per turn, staying strictly within the chosen genre.
+5. After 4-8 exchanges, if the idea has earned it, the AI returns a `---FORGE_READY---` block with a title, 330-480 word summary, and 5 tags.
+6. User edits the draft and clicks **Post to Feed — 1 credit**. Credit deducted here only.
+
+### Genres and AI roles
+
+| Genre | AI Role | Primary lens |
+|---|---|---|
+| Problem | Root-cause investigator | Symptom vs disease — stay in diagnosis, never jump to solutions |
+| Solution | Stress-tester | Find the weakest point — feasibility, unintended consequences, assumptions |
+| Observation | Pattern interrogator | Real pattern vs over-interpreted data point — what does it imply? |
+| Question | Question auditor | Sharpen the question before attempting any answer — expose buried assumptions |
+| Prediction | Falsifiability enforcer | Demand evidence, timeline, base rate, and what would prove it wrong |
+| Contradiction | Coherence investigator | Real vs apparent — who benefits from the contradiction existing? |
+| Concept | Usefulness auditor | Genuinely useful vs merely interesting — test with concrete examples and edge cases |
+| Challenge | Devil's advocate | Steel-man the conventional view first, then test whether the challenge survives |
+
+### FORGE_READY summary structure
+
+When the AI decides the idea is ready, the generated summary always follows this structure (written as continuous prose with no labels):
+
+| Section | Word budget |
 |---|---|
-| `profiles` | User profile, tier, credits, ban status, is_admin flag |
-| `ideas` | Published and draft ideas with domain, genre, tags, spark/comment counts |
-| `forge_sessions` | AI conversation history, turn tracking, token usage, draft fields |
-| `comments` | Threaded comments with 50-word minimum |
-| `sparks` | Unified likes for ideas and comments |
-| `follows` | Follow relationships between users |
-| `notifications` | In-app notifications (spark, comment, build, new_idea_from_follow) |
-| `credit_transactions` | Full audit log of credit changes |
-| `reports` | Comment abuse reports |
-| `flagged_content` | Admin moderation queue for ideas |
-| `admin_actions` | Audit log of all admin actions |
+| Claim | 50-80 words |
+| Reasoning | 100-150 words |
+| Counterargument | 100-150 words |
+| Implication | 80-100 words |
+| **Total** | **330-480 words** |
+
+### Auto-flagging
+
+Ideas are automatically flagged for admin review in two cases:
+1. **AI redirect triggered** — the Forge used the hate/inflammatory redirect phrase during the session
+2. **Keyword match** — the final title or summary contains a word from the hate speech blocklist
 
 ---
 
-## Key Business Logic
+## Domains
 
-### Forge Session Flow
-1. User picks domain and genre → `POST /forge/start` (checks credits > 0)
-2. User sends messages → `POST /forge/message` (Claude responds, tokens tracked)
-3. After 4–8 turns, if idea is ready, Claude appends `---FORGE_READY---` block with title, summary, 5 tags
-4. User edits the draft in the UI
-5. User posts → `POST /forge/post` (1 credit deducted, idea published)
+Technology · Science & Nature · Society & Culture · Philosophy & Ethics · Business & Economy · Arts & Creativity · Politics & Power · Education & Learning · Health & Mind · Environment & Future · Sports & Games · History & Civilisation
 
-### Auto-Flagging
-- If Claude responds with "that framing is more heat than light", `ai_redirect_triggered` is set on the session. On post, the idea is auto-flagged.
-- If title or summary contains any configured hate terms, the idea is auto-flagged on post.
-- Users can manually report any idea from the idea detail page.
+---
 
-### Payments Flow
-1. User clicks Upgrade → `POST /payments/subscribe` → redirected to Stripe Checkout
-2. On return, `POST /payments/sync` is called to immediately update tier and credits without waiting for webhook
-3. Stripe webhooks handle renewals (`invoice.payment_succeeded`) and cancellations (`customer.subscription.deleted`) asynchronously
+## Making a User Admin
 
-### Admin Access
-- Set `is_admin = true` in the `profiles` table via Supabase SQL Editor
-- Admin accounts have `tier = admin`, 20 credits/month for seed posting, 10 turns/session
-- Admin accounts cannot use Forge — only the Seed Generator in the admin panel
-- The Admin nav link in the header is only visible when `profile.tier === 'admin'`
+Admins cannot self-promote. To grant admin access:
+
+1. Go to **Supabase Dashboard → Table Editor → profiles**
+2. Find the user's row
+3. Set `is_admin = true`
+4. Set `tier = admin`
+
+Admin accounts cannot use Forge. They access the admin panel, generate seed ideas, and post them to the feed. Seed posts appear under the admin's own username.
+
+---
+
+## Deployment
+
+### Render (Backend + Frontend)
+
+`render.yaml` at the project root defines both services. Connect your GitHub repo in Render, then set all environment variables in the Render dashboard under each service's **Environment** tab.
+
+Set **Python version to 3.11** in the backend service under Settings → Language.
+
+### Vercel (Frontend Alternative)
+
+1. Import the repo in Vercel
+2. Set **Root Directory** to `forge/frontend`
+3. Add all `VITE_*` environment variables
+4. Deploy
+
+After deploying, add the Vercel URL to `FRONTEND_URL` in the Render backend environment (comma-separated).
+
+### Stripe Webhooks
+
+Register the backend as a webhook endpoint in Stripe Dashboard:
+
+```
+https://your-backend.onrender.com/payments/webhook
+```
+
+Enable these events:
+- `checkout.session.completed`
+- `customer.subscription.deleted`
+- `invoice.payment_succeeded`
+
+Copy the webhook signing secret into `STRIPE_WEBHOOK_SECRET`.
+
+---
+
+## LLM Cost Minimisation
+
+Running Claude Sonnet on every Forge turn is the biggest cost driver in the platform. The following strategies are layered together to keep it under control.
+
+---
+
+### 1. Prompt Caching
+
+Every system prompt is sent to Anthropic with a `cache_control: { type: "ephemeral" }` header on the system block:
+
+```python
+# anthropic_service.py — build_system_prompt()
+return [{"type": "text", "text": text, "cache_control": {"type": "ephemeral"}}]
+```
+
+Anthropic caches this block server-side for 5 minutes. On every subsequent turn within the same session, the system prompt is served from cache rather than re-tokenised. Since the system prompt is ~500 words (~650 tokens) and is repeated on every single API call, this saves roughly **90% of input token cost on the system block** for turns 2 and beyond.
+
+This is the single biggest cost saving in the codebase.
+
+---
+
+### 2. Output Token Cap (`max_tokens=1000`)
+
+The API is hard-capped at 1000 output tokens per call. The model cannot generate beyond this regardless of what it tries to write. This prevents runaway verbose responses from quietly inflating costs.
+
+For the seed generator (admin only, single call, no conversation), the cap is set lower at `max_tokens=700` since it only needs to produce a title, summary, and tags.
+
+---
+
+### 3. Conversational Word Limit in the System Prompt
+
+The system prompt instructs the AI to stay under 350 words per conversational response:
+
+```
+Keep each conversational response under 350 words. Always end with a complete sentence.
+```
+
+This is a behavioural guardrail that sits above the hard token cap. Because the model tries to comply, most turns generate 150-250 output tokens rather than pushing toward the 1000-token ceiling. **You only pay for tokens actually generated** — so if the model writes 200 words, you pay for ~260 tokens, not 1000.
+
+The FORGE_READY turn is intentionally exempt from this limit since the summary needs 330-480 words. That one turn will use more tokens, but it only happens once per session.
+
+---
+
+### 4. User Input Cap (500 Words)
+
+Every message the user sends is validated at the backend before it is forwarded to the API:
+
+```python
+# forge.py — /stream and /message endpoints
+if len(body.message.split()) > 500:
+    raise HTTPException(status_code=400, detail="Message exceeds 500-word limit")
+```
+
+Long user inputs directly inflate input token costs on every subsequent turn because the full conversation history is sent to the API each time. Capping inputs at 500 words limits how fast the conversation history grows.
+
+The frontend also shows a live word counter once the user passes 450 words and disables the Send button at 501+.
+
+---
+
+### 5. Turn Limits per Tier
+
+Each tier has a hard turn ceiling per session:
+
+| Tier | Max Turns |
+|---|---|
+| free | 5 |
+| thinker | 8 |
+| scholar | 8 |
+| admin | 10 |
+
+This caps the maximum number of API calls and therefore the maximum token cost of a single session. A free user cannot run a 20-turn session that costs 10× what was expected.
+
+Turn extensions (+4 turns for £2) are a paid feature, so any cost above the tier cap is offset by revenue.
+
+---
+
+### 6. Token Tracking and Spend Monitoring
+
+Every session logs cumulative input and output tokens to `forge_sessions`:
+
+```python
+updates = {
+    "input_tokens": (session.get("input_tokens") or 0) + input_tokens,
+    "output_tokens": (session.get("output_tokens") or 0) + output_tokens,
+}
+```
+
+The admin panel's **API Costs** page reads these to show:
+- Daily and monthly spend in GBP
+- Spend as a percentage of the monthly cap (`MONTHLY_SPEND_CAP_GBP`)
+- An hourly breakdown chart
+- The top 10 most expensive sessions by username
+
+Cost is calculated using Claude Sonnet 4.6 pricing converted to GBP:
+
+```python
+INPUT_COST_GBP  = 3  * 0.79 / 1_000_000   # $3 per 1M input tokens
+OUTPUT_COST_GBP = 15 * 0.79 / 1_000_000   # $15 per 1M output tokens
+```
+
+This gives full visibility into where spend is going before it becomes a problem.
+
+---
+
+### 7. Credit System as a Rate Limiter
+
+Credits are deducted only on posting (1 credit per idea). Free users get 3 credits per month, meaning at most 3 Forge sessions result in a posted idea. However, a user could start many sessions without posting — so the turn limits (point 5) are the primary guard against token abuse in abandoned sessions.
+
+---
+
+### Summary
+
+| Strategy | Where | What it saves |
+|---|---|---|
+| Prompt caching | `anthropic_service.py` | ~90% of input tokens on system prompt from turn 2 onward |
+| `max_tokens=1000` | `anthropic_service.py`, `forge.py` | Hard ceiling on output per call |
+| 350-word output instruction | System prompt | Keeps most turns at 150-250 output tokens |
+| 500-word input cap | `forge.py` backend validation | Limits conversation history growth |
+| Turn limits per tier | `supabase_service.py` | Caps API calls per session |
+| Token tracking + admin panel | `forge_sessions` table + `admin.py` | Visibility and early warning on spend |
+
+---
+
+## Security Notes
+
+- All secrets in environment variables — never committed to source control
+- Supabase RLS enforces row-level access on all tables
+- Admin endpoints query `is_admin` from the database on every request — it is not stored in the JWT
+- Input cap: 500 words per Forge message, enforced on the backend
+- CORS restricted to explicit origins via `FRONTEND_URL`
+- Stripe webhook signature verified on every inbound webhook call
+- Monthly Anthropic spend cap configurable via `MONTHLY_SPEND_CAP_GBP`

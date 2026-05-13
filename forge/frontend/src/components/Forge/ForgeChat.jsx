@@ -96,35 +96,41 @@ export default function ForgeChat({ session: initialSession, onComplete }) {
       <TurnIndicator turnsUsed={session.turns_used || 0} maxTurns={session.max_turns || 5} />
 
       <div className="chat-messages">
-        {messages.map((msg, i) => (
-          <div key={i} className={`chat-message ${msg.role}`}>
-            {msg.role === 'assistant' && (
-              <div className="avatar avatar-sm" style={{ background: '#C46000', flexShrink: 0 }}>
-                ✦
+        {messages.map((msg, i) => {
+          const isStreamingPlaceholder = sending && i === messages.length - 1 && msg.role === 'assistant' && !msg.content
+          if (isStreamingPlaceholder) return (
+            <div key={i} className="chat-message assistant">
+              <div className="avatar avatar-sm" style={{ background: '#C46000', flexShrink: 0 }}>✦</div>
+              <div className="chat-bubble" style={{ color: 'var(--light-gray)' }}>
+                Thinking<span className="loading-dots" />
               </div>
-            )}
-            <div className="chat-bubble">
-              {msg.content
-                .replace(/\*\*/g, '')
-                .replace(/\*/g, '')
-                .replace(/\n{3,}/g, '\n\n')
-                .split('\n\n')
-                .filter(p => p.trim())
-                .map((para, j) => (
-                  <p key={j} style={{ margin: j === 0 ? 0 : '10px 0 0 0' }}>{para.trim()}</p>
-                ))}
             </div>
-          </div>
-        ))}
-
-        {sending && (
-          <div className="chat-message assistant">
-            <div className="avatar avatar-sm" style={{ background: '#C46000', flexShrink: 0 }}>✦</div>
-            <div className="chat-bubble" style={{ color: 'var(--light-gray)' }}>
-              Thinking<span className="loading-dots" />
+          )
+          if (!msg.content) return null
+          return (
+            <div key={i} className={`chat-message ${msg.role}`}>
+              {msg.role === 'assistant' && (
+                <div className="avatar avatar-sm" style={{ background: '#C46000', flexShrink: 0 }}>
+                  ✦
+                </div>
+              )}
+              <div className="chat-bubble">
+                {msg.content
+                  .replace(/\*\*/g, '')
+                  .replace(/\*/g, '')
+                  .replace(/\n{3,}/g, '\n\n')
+                  .split('\n\n')
+                  .filter(p => p.trim())
+                  .map((para, j) => (
+                    <p key={j} style={{ margin: j === 0 ? 0 : '10px 0 0 0' }}>{para.trim()}</p>
+                  ))}
+                {sending && i === messages.length - 1 && msg.role === 'assistant' && (
+                  <span className="streaming-cursor" />
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )
+        })}
         <div ref={messagesEndRef} />
       </div>
 
@@ -194,23 +200,30 @@ export default function ForgeChat({ session: initialSession, onComplete }) {
             />
           )}
         <form className="chat-input-area" onSubmit={handleSend}>
-          <textarea
-            ref={inputRef}
-            className="chat-input"
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={messages.length === 0
-              ? "Describe your idea, as rough as you like..."
-              : "Your answer..."
-            }
-            disabled={sending}
-            rows={2}
-          />
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <textarea
+              ref={inputRef}
+              className="chat-input"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={messages.length === 0
+                ? "Describe your idea, as rough as you like..."
+                : "Your answer..."
+              }
+              disabled={sending}
+              rows={2}
+            />
+            {input.split(/\s+/).filter(Boolean).length > 450 && (
+              <span style={{ fontSize: '0.75rem', color: input.split(/\s+/).filter(Boolean).length > 500 ? 'var(--error)' : 'var(--gray)' }}>
+                {input.split(/\s+/).filter(Boolean).length}/500 words
+              </span>
+            )}
+          </div>
           <button
             className="btn btn-primary"
             type="submit"
-            disabled={sending || !input.trim()}
+            disabled={sending || !input.trim() || input.split(/\s+/).filter(Boolean).length > 500}
             style={{ flexShrink: 0 }}
           >
             {sending ? '...' : 'Send →'}

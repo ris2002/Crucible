@@ -64,28 +64,74 @@ export function useForge() {
     setSending(true)
     setError(null)
 
-    const userMsg = { role: 'user', content: text }
-    setMessages(prev => [...prev, userMsg])
+    setMessages(prev => [...prev, { role: 'user', content: text }, { role: 'assistant', content: '' }])
 
     try {
-      const data = await api.sendMessage(session.session_id, text)
+      const response = await api.streamMessage(session.session_id, text)
 
-      const assistantMsg = { role: 'assistant', content: data.reply }
-      setMessages(prev => [...prev, assistantMsg])
-
-      setSession(prev => ({ ...prev, turns_used: data.turns_used, max_turns: data.max_turns }))
-
-      if (data.forge_ready) {
-        setForgeReady(true)
-        setDraft({ title: data.draft_title, summary: data.draft_summary, tags: data.draft_tags })
-        setWarning(false)
-      } else if (data.warning) {
-        setWarning(true)
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ detail: 'Request failed' }))
+        throw new Error(err.detail || 'Request failed')
       }
 
-      return data
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop()
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          let data
+          try { data = JSON.parse(line.slice(6)) } catch { continue }
+
+          if (data.error) throw new Error(data.error)
+
+          if (data.text) {
+            setMessages(prev => {
+              const updated = [...prev]
+              const last = updated[updated.length - 1]
+              if (last?.role === 'assistant') {
+                updated[updated.length - 1] = { ...last, content: last.content + data.text }
+              }
+              return updated
+            })
+          }
+
+          if (data.done) {
+            setSession(prev => ({ ...prev, turns_used: data.turns_used, max_turns: data.max_turns }))
+            if (data.forge_ready) {
+              setMessages(prev => {
+                const updated = [...prev]
+                const last = updated[updated.length - 1]
+                if (last?.role === 'assistant') {
+                  const content = last.content.split('---FORGE_READY---')[0].trim()
+                  updated[updated.length - 1] = { ...last, content }
+                }
+                return updated
+              })
+              setForgeReady(true)
+              setDraft({ title: data.draft_title, summary: data.draft_summary, tags: data.draft_tags })
+              setWarning(false)
+            } else if (data.warning) {
+              setWarning(true)
+            }
+          }
+        }
+      }
     } catch (e) {
-      setMessages(prev => prev.filter(m => m !== userMsg))
+      setMessages(prev => {
+        const updated = [...prev]
+        if (updated[updated.length - 1]?.role === 'assistant') updated.pop()
+        if (updated[updated.length - 1]?.role === 'user') updated.pop()
+        return updated
+      })
       setError(e.message)
       throw e
     } finally {

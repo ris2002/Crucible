@@ -8,7 +8,7 @@ import TurnWarning from './TurnWarning'
 export default function ForgeChat({ session: initialSession, onComplete }) {
   const navigate = useNavigate()
   const forge = useForge()
-  const [input, setInput] = useState('')
+  const [input, setInput] = useState(() => sessionStorage.getItem('crucible_input') || '')
   const [extending, setExtending] = useState(false)
   const [posting, setPosting] = useState(false)
   const [postError, setPostError] = useState('')
@@ -30,6 +30,7 @@ export default function ForgeChat({ session: initialSession, onComplete }) {
     const text = input.trim()
     if (!text || forge.sending) return
     setInput('')
+    sessionStorage.removeItem('crucible_input')
     try {
       await forge.sendMessage(text)
       inputRef.current?.focus()
@@ -88,6 +89,7 @@ export default function ForgeChat({ session: initialSession, onComplete }) {
   }
 
   const { session, messages, sending, forgeReady, draft, setDraft, warning, error } = forge
+  const turnLimitReached = !forgeReady && session && (session.turns_used || 0) >= (session.max_turns || 5)
 
   if (!session) return null
 
@@ -189,7 +191,7 @@ export default function ForgeChat({ session: initialSession, onComplete }) {
         </div>
       ) : !forgeReady && (
         <>
-          {warning && (
+          {warning && !turnLimitReached && (
             <TurnWarning
               turnsUsed={session.turns_used}
               maxTurns={session.max_turns}
@@ -199,19 +201,37 @@ export default function ForgeChat({ session: initialSession, onComplete }) {
               extending={extending}
             />
           )}
+          {turnLimitReached && (
+            <div className="turn-warning">
+              <h3>Turn limit reached — {session.turns_used} of {session.max_turns}</h3>
+              <p>You've used all your turns. Extend for 4 more turns, or save your draft and come back later.</p>
+              <div className="turn-warning-actions">
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={handleExtend}
+                  disabled={extending}
+                >
+                  {extending ? 'Redirecting...' : 'Buy 4 more turns — £2'}
+                </button>
+                <button className="btn btn-secondary btn-sm" onClick={handleSaveDraft}>
+                  Save Draft
+                </button>
+              </div>
+            </div>
+          )}
         <form className="chat-input-area" onSubmit={handleSend}>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
             <textarea
               ref={inputRef}
               className="chat-input"
               value={input}
-              onChange={e => setInput(e.target.value)}
+              onChange={e => { setInput(e.target.value); sessionStorage.setItem('crucible_input', e.target.value) }}
               onKeyDown={handleKeyDown}
               placeholder={messages.length === 0
                 ? "Describe your idea, as rough as you like..."
                 : "Your answer..."
               }
-              disabled={sending}
+              disabled={sending || turnLimitReached}
               rows={2}
             />
             {input.split(/\s+/).filter(Boolean).length > 450 && (
@@ -223,7 +243,7 @@ export default function ForgeChat({ session: initialSession, onComplete }) {
           <button
             className="btn btn-primary"
             type="submit"
-            disabled={sending || !input.trim() || input.split(/\s+/).filter(Boolean).length > 500}
+            disabled={sending || !input.trim() || input.split(/\s+/).filter(Boolean).length > 500 || turnLimitReached}
             style={{ flexShrink: 0 }}
           >
             {sending ? '...' : 'Send →'}

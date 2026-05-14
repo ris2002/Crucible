@@ -2,35 +2,52 @@ import { useState, useCallback, useEffect } from 'react'
 import { api } from '../lib/api'
 
 const STORAGE_KEY = 'forge_active_session_id'
+const CACHE_KEY = 'forge_session_cache'
+
+function restoreFromCache() {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch { return null }
+}
 
 export function useForge() {
-  const [session, setSession] = useState(null)
-  const [messages, setMessages] = useState([])
+  const cached = restoreFromCache()
+  const [session, setSession] = useState(cached?.session || null)
+  const [messages, setMessages] = useState(cached?.messages || [])
   const [loading, setLoading] = useState(false)
   const [sending, setSending] = useState(false)
-  const [forgeReady, setForgeReady] = useState(false)
-  const [draft, setDraft] = useState(null)
+  const [forgeReady, setForgeReady] = useState(cached?.forgeReady || false)
+  const [draft, setDraft] = useState(cached?.draft || null)
   const [warning, setWarning] = useState(false)
   const [error, setError] = useState(null)
+
+  const saveCache = useCallback((session, messages, forgeReady, draft) => {
+    try {
+      localStorage.setItem(CACHE_KEY, JSON.stringify({ session, messages, forgeReady, draft }))
+    } catch {}
+  }, [])
 
   const loadSession = useCallback(async (sessionId) => {
     setLoading(true)
     try {
       const data = await api.getSession(sessionId)
-      setSession({ ...data, session_id: data.id })
-      setMessages(data.messages || [])
-      if (data.draft_title) {
-        setForgeReady(true)
-        setDraft({ title: data.draft_title, summary: data.draft_summary, tags: data.draft_tags || [] })
-      }
+      const sess = { ...data, session_id: data.id }
+      const msgs = data.messages || []
+      const ready = !!data.draft_title
+      const draftData = ready ? { title: data.draft_title, summary: data.draft_summary, tags: data.draft_tags || [] } : null
+      setSession(sess)
+      setMessages(msgs)
+      if (ready) { setForgeReady(true); setDraft(draftData) }
       localStorage.setItem(STORAGE_KEY, sessionId)
+      saveCache(sess, msgs, ready, draftData)
     } catch (e) {
       localStorage.removeItem(STORAGE_KEY)
       setError(e.message)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [saveCache])
 
   useEffect(() => {
     const savedId = localStorage.getItem(STORAGE_KEY)
@@ -50,6 +67,7 @@ export function useForge() {
       setDraft(null)
       setWarning(false)
       localStorage.setItem(STORAGE_KEY, data.session_id)
+      saveCache(data, [], false, null)
       return data
     } catch (e) {
       setError(e.message)
@@ -57,11 +75,12 @@ export function useForge() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [saveCache])
 
   const sendMessage = useCallback(async (text) => {
     if (!session) return
     setSending(true)
+    setWarning(false)
     setError(null)
 
     setMessages(prev => [...prev, { role: 'user', content: text }, { role: 'assistant', content: '' }])
@@ -105,7 +124,14 @@ export function useForge() {
           }
 
           if (data.done) {
-            setSession(prev => ({ ...prev, turns_used: data.turns_used, max_turns: data.max_turns }))
+            setSession(prev => {
+              const updated = { ...prev, turns_used: data.turns_used, max_turns: data.max_turns }
+              setMessages(msgs => {
+                saveCache(updated, msgs, data.forge_ready, data.forge_ready ? { title: data.draft_title, summary: data.draft_summary, tags: data.draft_tags } : null)
+                return msgs
+              })
+              return updated
+            })
             if (data.forge_ready) {
               setMessages(prev => {
                 const updated = [...prev]
@@ -159,6 +185,7 @@ export function useForge() {
     setWarning(false)
     setError(null)
     localStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem(CACHE_KEY)
   }, [])
 
   return {

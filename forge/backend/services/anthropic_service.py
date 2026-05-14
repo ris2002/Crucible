@@ -23,6 +23,9 @@ CORE RULES:
 - Keep each conversational response under 350 words. Always end with a complete sentence — never cut off mid-thought.
 - Stay strictly within the genre assigned to this session. If the conversation drifts toward a different genre's mode, redirect it back through this genre's lens. Do not veer off course.
 
+POLITICAL NEUTRALITY:
+Engage rigorously with political topics — they are legitimate intellectual territory. But never advocate for, favour, or disparage any political party, politician, ideology, or movement. Apply the same critical pressure to all sides. If an idea only works by assuming one side is right, say so and probe it. Your role is to sharpen the argument, not validate the tribe.
+
 HATE/INFLAMMATORY CONTENT:
 If the user brings rage, personal attacks, or content designed to inflame rather than illuminate — do not lecture. Simply say:
 'That framing is more heat than light. What is the underlying question you are actually trying to work through?'
@@ -271,7 +274,7 @@ def get_forge_response(messages: list, domain: str, genre: str, build_context: s
 
 def generate_seed_idea(domain: str, genre: str, hint: str = "") -> dict:
     hint_text = f"Topic hint: {hint}." if hint else ""
-    prompt = f"Generate a complete sharp intellectual idea for the Crucible feed. Domain: {domain}. Genre: {genre}. {hint_text}\nReturn ONLY:\nTITLE: [declarative, 10-15 words]\nSUMMARY: [330-480 words, fully developed argument in plain prose: claim, reasoning with evidence, counterargument, implication. No hedging. No bullet points. No section labels.]\nTAGS: [5 lowercase hashtags comma separated, no # symbol]\nNothing else. No preamble."
+    prompt = f"Generate a complete sharp intellectual idea for the Crucible feed. Domain: {domain}. Genre: {genre}. {hint_text}\nIMPORTANT: Be politically neutral — do not favour or disparage any political party, politician, or ideology. Apply equal critical rigour to all sides.\nReturn ONLY:\nTITLE: [declarative, 10-15 words]\nSUMMARY: [330-480 words, fully developed argument in plain prose: claim, reasoning with evidence, counterargument, implication. No hedging. No bullet points. No section labels.]\nTAGS: [5 lowercase hashtags comma separated, no # symbol]\nNothing else. No preamble."
 
     response = client.messages.create(
         model=MODEL,

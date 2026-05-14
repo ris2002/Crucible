@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { useCredits } from '../../hooks/useCredits'
+import { usePurchases } from '../../hooks/usePurchases'
 import { api } from '../../lib/api'
 
 const TIERS = [
@@ -13,6 +14,7 @@ const TIERS = [
 export default function SettingsPage() {
   const { user, profile, loading: authLoading, refreshProfile } = useAuth()
   const { credits, tier, refresh: refreshCredits } = useCredits()
+  const { upgrades_enabled: upgradesEnabled } = usePurchases()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [bio, setBio] = useState('')
@@ -129,7 +131,7 @@ export default function SettingsPage() {
               <div>
                 {(profile?.tier || 'free') === t.id ? (
                   <span style={{ fontSize: '0.8rem', color: 'var(--orange)', fontWeight: 600 }}>Current</span>
-                ) : t.id !== 'free' && t.id !== 'admin' ? (
+                ) : t.id !== 'free' && t.id !== 'admin' && upgradesEnabled ? (
                   <button
                     className="btn btn-primary btn-sm"
                     onClick={() => handleSubscribe(t.id)}
@@ -137,6 +139,8 @@ export default function SettingsPage() {
                   >
                     {subscribing === t.id ? 'Redirecting...' : 'Upgrade'}
                   </button>
+                ) : t.id !== 'free' && t.id !== 'admin' && !upgradesEnabled ? (
+                  <span style={{ fontSize: '0.8rem', color: 'var(--light-gray)' }}>Unavailable</span>
                 ) : null}
               </div>
             </div>

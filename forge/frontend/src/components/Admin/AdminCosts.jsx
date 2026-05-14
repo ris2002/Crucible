@@ -26,7 +26,7 @@ function CapBar({ percent }) {
       <div style={{ background: 'var(--border)', borderRadius: 4, height: 8, overflow: 'hidden' }}>
         <div style={{ width: `${Math.min(percent, 100)}%`, background: color, height: '100%', transition: 'width 0.3s' }} />
       </div>
-      <div style={{ fontSize: '0.75rem', color, marginTop: 4 }}>{percent}% of monthly cap</div>
+      <div style={{ fontSize: '0.75rem', color, marginTop: 4 }}>{percent}% of cap used since last top-up</div>
     </div>
   )
 }
@@ -34,19 +34,55 @@ function CapBar({ percent }) {
 export default function AdminCosts() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [resetting, setResetting] = useState(false)
 
-  useEffect(() => {
+  function load() {
     adminApi.getCosts().then(setData).catch(console.error).finally(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => { load() }, [])
+
+  async function handleReset() {
+    if (!window.confirm('Reset cost counter? Do this after topping up your Anthropic balance.')) return
+    setResetting(true)
+    try {
+      await adminApi.resetCosts()
+      await adminApi.getCosts().then(setData)
+    } finally {
+      setResetting(false)
+    }
+  }
 
   if (loading) return <div style={{ color: 'var(--gray)' }}>Loading...</div>
   if (!data) return <div style={{ color: '#C00' }}>Failed to load</div>
 
   const alertColor = data.cap_percent >= 90 ? '#C00' : data.cap_percent >= 70 ? '#E6A817' : '#276749'
+  const resetDate = data.cost_reset_at
+    ? new Date(data.cost_reset_at).toLocaleString()
+    : 'Never reset'
 
   return (
     <div>
-      <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: 24 }}>API Cost Monitor</h2>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+        <div>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0 }}>API Cost Monitor</h2>
+          <p style={{ fontSize: '0.8rem', color: 'var(--gray)', margin: '4px 0 0' }}>
+            Last reset: {resetDate}
+          </p>
+        </div>
+        <button
+          onClick={handleReset}
+          disabled={resetting}
+          style={{
+            padding: '8px 16px', borderRadius: 6, border: '1px solid var(--border)',
+            background: 'var(--white)', cursor: resetting ? 'not-allowed' : 'pointer',
+            fontSize: '0.875rem', fontWeight: 600, color: 'var(--dark)',
+            opacity: resetting ? 0.6 : 1,
+          }}
+        >
+          {resetting ? 'Resetting...' : '↺ Reset Counter'}
+        </button>
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
         <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 'var(--radius-card)', padding: 20 }}>
@@ -54,8 +90,8 @@ export default function AdminCosts() {
           <div style={{ fontSize: '1.8rem', fontWeight: 700 }}>£{data.spend_today_gbp}</div>
         </div>
         <div style={{ background: 'var(--white)', border: `1px solid ${alertColor}`, borderRadius: 'var(--radius-card)', padding: 20 }}>
-          <div style={{ fontSize: '0.8rem', color: 'var(--gray)', marginBottom: 6 }}>Spend this month</div>
-          <div style={{ fontSize: '1.8rem', fontWeight: 700, color: alertColor }}>£{data.spend_month_gbp}</div>
+          <div style={{ fontSize: '0.8rem', color: 'var(--gray)', marginBottom: 6 }}>Spend since last top-up</div>
+          <div style={{ fontSize: '1.8rem', fontWeight: 700, color: alertColor }}>£{data.spend_since_reset_gbp}</div>
           <CapBar percent={data.cap_percent} />
         </div>
       </div>

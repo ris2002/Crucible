@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForge } from '../../hooks/useForge'
+import { usePurchases } from '../../hooks/usePurchases'
 import { api } from '../../lib/api'
 import TurnIndicator from './TurnIndicator'
 import TurnWarning from './TurnWarning'
@@ -88,6 +89,7 @@ export default function ForgeChat({ session: initialSession, onComplete }) {
     }
   }
 
+  const { purchases_enabled: purchasesEnabled } = usePurchases()
   const { session, messages, sending, forgeReady, draft, setDraft, warning, error } = forge
   const turnLimitReached = !forgeReady && session && (session.turns_used || 0) >= (session.max_turns || 5)
 
@@ -204,15 +206,20 @@ export default function ForgeChat({ session: initialSession, onComplete }) {
           {turnLimitReached && (
             <div className="turn-warning">
               <h3>Turn limit reached — {session.turns_used} of {session.max_turns}</h3>
-              <p>You've used all your turns. Extend for 4 more turns, or save your draft and come back later.</p>
+              <p>
+                You've used all your turns.
+                {purchasesEnabled ? ' Extend for 4 more turns, or save your draft and come back later.' : ' Save your draft and come back later.'}
+              </p>
               <div className="turn-warning-actions">
-                <button
-                  className="btn btn-primary btn-sm"
-                  onClick={handleExtend}
-                  disabled={extending}
-                >
-                  {extending ? 'Redirecting...' : 'Buy 4 more turns — £2'}
-                </button>
+                {purchasesEnabled && (
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={handleExtend}
+                    disabled={extending}
+                  >
+                    {extending ? 'Redirecting...' : 'Buy 4 more turns — £2'}
+                  </button>
+                )}
                 <button className="btn btn-secondary btn-sm" onClick={handleSaveDraft}>
                   Save Draft
                 </button>

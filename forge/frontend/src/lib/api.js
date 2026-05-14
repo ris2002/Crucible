@@ -88,4 +88,5 @@ export const api = {
   syncSubscription: () => request('POST', '/payments/sync'),
   syncTurns: (session_id, checkout_id) => request('POST', '/payments/sync-turns', { session_id, checkout_id }),
   cancelSubscription: () => request('DELETE', '/payments/subscription'),
+  getPurchasesConfig: () => request('GET', '/payments/config'),
 }

@@ -7,12 +7,21 @@ from models import SubscribeRequest
 router = APIRouter()
 
 
+@router.get("/config")
+async def purchases_config():
+    from services import supabase_service as db
+    return db.get_app_settings()
+
+
 @router.post("/subscribe")
 async def subscribe(body: SubscribeRequest, user=Depends(get_current_user)):
     if body.tier not in ("thinker", "scholar"):
         raise HTTPException(status_code=400, detail="Invalid tier")
 
     from services import supabase_service as db
+    if not db.get_upgrades_enabled():
+        raise HTTPException(status_code=403, detail="Tier upgrades are currently disabled")
+
     user_auth = db.supabase_admin.auth.admin.get_user_by_id(user.id)
     email = user_auth.user.email if user_auth.user else None
 
@@ -23,6 +32,10 @@ async def subscribe(body: SubscribeRequest, user=Depends(get_current_user)):
 
 @router.post("/extend-turns")
 async def extend_turns(body: dict, user=Depends(get_current_user)):
+    from services import supabase_service as db
+    if not db.get_purchases_enabled():
+        raise HTTPException(status_code=403, detail="Purchases are currently disabled")
+
     session_id = body.get("session_id")
     if not session_id:
         raise HTTPException(status_code=400, detail="session_id required")

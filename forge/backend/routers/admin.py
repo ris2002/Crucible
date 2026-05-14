@@ -112,17 +112,24 @@ async def ban_user_via_flag(flag_id: str, admin=Depends(require_admin)):
 async def get_costs(admin=Depends(require_admin)):
     now = datetime.now(timezone.utc)
     today = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
     monthly_cap = float(os.getenv("MONTHLY_SPEND_CAP_GBP", "100"))
+
+    settings = db.get_app_settings()
+    cost_reset_at = settings.get("cost_reset_at")
+
+    # "since reset" window — from last top-up or beginning of time
+    since = cost_reset_at or "2000-01-01T00:00:00+00:00"
 
     sessions_today = db.supabase_admin.table("forge_sessions").select(
         "input_tokens,output_tokens,created_at,user_id,profiles!forge_sessions_user_id_fkey(username)"
     ).gte("created_at", today).order("created_at").execute()
 
-    sessions_month = db.supabase_admin.table("forge_sessions").select("input_tokens,output_tokens").gte("created_at", month_start).execute()
+    sessions_since_reset = db.supabase_admin.table("forge_sessions").select(
+        "input_tokens,output_tokens"
+    ).gte("created_at", since).execute()
 
     spend_today = sum(calc_cost(s.get("input_tokens") or 0, s.get("output_tokens") or 0) for s in (sessions_today.data or []))
-    spend_month = sum(calc_cost(s.get("input_tokens") or 0, s.get("output_tokens") or 0) for s in (sessions_month.data or []))
+    spend_since_reset = sum(calc_cost(s.get("input_tokens") or 0, s.get("output_tokens") or 0) for s in (sessions_since_reset.data or []))
 
     hourly = {}
     for s in (sessions_today.data or []):
@@ -142,9 +149,10 @@ async def get_costs(admin=Depends(require_admin)):
 
     return {
         "spend_today_gbp": round(spend_today, 4),
-        "spend_month_gbp": round(spend_month, 4),
+        "spend_since_reset_gbp": round(spend_since_reset, 4),
         "monthly_cap_gbp": monthly_cap,
-        "cap_percent": round(spend_month / monthly_cap * 100, 1) if monthly_cap else 0,
+        "cap_percent": round(spend_since_reset / monthly_cap * 100, 1) if monthly_cap else 0,
+        "cost_reset_at": cost_reset_at,
         "sessions_today": session_count,
         "avg_tokens_per_session": avg_tokens,
         "hourly": hourly_data,
@@ -158,6 +166,14 @@ async def get_costs(admin=Depends(require_admin)):
             for s in top_sessions
         ],
     }
+
+
+@router.post("/costs/reset")
+async def reset_costs(admin=Depends(require_admin)):
+    now = datetime.now(timezone.utc).isoformat()
+    db.set_app_settings({"cost_reset_at": now})
+    db.log_admin_action(admin.email, "reset_costs", "system", "app_settings", notes=f"reset at {now}")
+    return {"cost_reset_at": now}
 
 
 @router.post("/seed/generate")
@@ -290,6 +306,24 @@ async def unban_user(user_id: str, admin=Depends(require_admin)):
     db.supabase_admin.table("ideas").update({"status": "published"}).eq("author_id", user_id).eq("status", "draft").execute()
     db.log_admin_action(admin.email, "unban", "user", user_id)
     return {"message": "User unbanned"}
+
+
+@router.get("/settings")
+async def get_settings(admin=Depends(require_admin)):
+    return db.get_app_settings()
+
+
+@router.post("/settings")
+async def update_settings(body: dict, admin=Depends(require_admin)):
+    updates = {}
+    if "purchases_enabled" in body:
+        updates["purchases_enabled"] = bool(body["purchases_enabled"])
+    if "upgrades_enabled" in body:
+        updates["upgrades_enabled"] = bool(body["upgrades_enabled"])
+    if updates:
+        db.set_app_settings(updates)
+        db.log_admin_action(admin.email, "update_settings", "system", "app_settings", notes=str(updates))
+    return db.get_app_settings()
 
 
 @router.post("/users/{user_id}/hard-delete")

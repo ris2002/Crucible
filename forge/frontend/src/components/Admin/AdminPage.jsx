@@ -7,6 +7,7 @@ import AdminFlagged from './AdminFlagged'
 import AdminCosts from './AdminCosts'
 import AdminSeedGenerator from './AdminSeedGenerator'
 import AdminUsers from './AdminUsers'
+import AdminSettings from './AdminSettings'
 
 const NAV = [
   { key: 'dashboard', label: 'Dashboard' },
@@ -14,6 +15,7 @@ const NAV = [
   { key: 'costs', label: 'API Costs' },
   { key: 'seed', label: 'Seed Generator' },
   { key: 'users', label: 'Users' },
+  { key: 'settings', label: 'Settings' },
 ]
 
 export default function AdminPage() {
@@ -38,6 +40,7 @@ export default function AdminPage() {
     costs: <AdminCosts />,
     seed: <AdminSeedGenerator />,
     users: <AdminUsers />,
+    settings: <AdminSettings />,
   }
 
   return (

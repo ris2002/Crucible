@@ -38,4 +38,7 @@ export const adminApi = {
   softDeleteUser: (id) => adminRequest(`/users/${id}/soft-delete`, { method: 'POST' }),
   unbanUser: (id) => adminRequest(`/users/${id}/unban`, { method: 'POST' }),
   hardDeleteUser: (id, confirm_username) => adminRequest(`/users/${id}/hard-delete`, { method: 'POST', body: JSON.stringify({ confirm_username }) }),
+  getSettings: () => adminRequest('/settings'),
+  setSettings: (body) => adminRequest('/settings', { method: 'POST', body: JSON.stringify(body) }),
+  resetCosts: () => adminRequest('/costs/reset', { method: 'POST' }),
 }

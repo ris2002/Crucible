@@ -39,10 +39,14 @@ def update_profile(user_id: str, updates: dict):
 
 def get_max_turns(tier: str) -> int:
     if tier == "free":
-        return 5
+        return 7
+    if tier == "thinker":
+        return 10
+    if tier == "scholar":
+        return 12
     if tier == "admin":
         return 10
-    return 8
+    return 7
 
 
 def get_ideas(domain: str = None, genre: str = None, sort: str = "recent",
@@ -323,6 +327,29 @@ def create_flag(idea_id: str, reason: str, triggered_by: str, reporter_id: str =
         supabase_admin.table("flagged_content").insert(data).execute()
     except Exception:
         pass
+
+
+def get_app_settings() -> dict:
+    result = supabase_admin.table("app_settings").select("purchases_enabled,upgrades_enabled,cost_reset_at").eq("id", 1).maybe_single().execute()
+    if result.data:
+        return {
+            "purchases_enabled": result.data.get("purchases_enabled", True),
+            "upgrades_enabled": result.data.get("upgrades_enabled", True),
+            "cost_reset_at": result.data.get("cost_reset_at"),
+        }
+    return {"purchases_enabled": True, "upgrades_enabled": True, "cost_reset_at": None}
+
+
+def get_purchases_enabled() -> bool:
+    return get_app_settings()["purchases_enabled"]
+
+
+def get_upgrades_enabled() -> bool:
+    return get_app_settings()["upgrades_enabled"]
+
+
+def set_app_settings(updates: dict):
+    supabase_admin.table("app_settings").upsert({"id": 1, **updates}).execute()
 
 
 def log_admin_action(admin_email: str, action_type: str, target_type: str, target_id: str, notes: str = None):

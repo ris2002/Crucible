@@ -848,6 +848,60 @@ Credits are deducted only on posting (1 credit per idea). Free users get 3 credi
 
 ---
 
+## Admin Controls
+
+### Purchase & Upgrade Toggles
+
+Admins have two independent kill switches in the **Admin Panel → Settings** tab. Changes take effect immediately for all users with no redeployment required.
+
+| Toggle | What it controls | Effect on existing users |
+|---|---|---|
+| **Tier Upgrades** | Free users subscribing to Thinker or Scholar | **None** — existing paid users keep their tier, credits, and monthly renewals |
+| **Turn Extensions** | Buying +4 turns for £2 mid-session | **None** — in-progress sessions continue normally |
+
+**When Tier Upgrades are disabled:**
+- Upgrade buttons on the Settings page are replaced with "Unavailable"
+- `/payments/subscribe` returns HTTP 403
+- Stripe webhook handlers (`invoice.payment_succeeded`, `customer.subscription.deleted`) still fire normally — existing subscribers are fully unaffected
+
+**When Turn Extensions are disabled:**
+- "Buy 4 more turns — £2" button is hidden in the chat turn-limit panel
+- "Extend 4 turns — £2" button is hidden in the TurnWarning banner
+- `/payments/extend-turns` returns HTTP 403
+
+These settings are stored in the `app_settings` table in Supabase (single row, `id = 1`). The frontend fetches them once on load via `GET /payments/config` and caches in memory for the session.
+
+---
+
+### Admin Panel Sections
+
+| Section | Description |
+|---|---|
+| **Dashboard** | Live stats: users, ideas, Crucible sessions, active subscriptions, flagged content count, spend today/month |
+| **Flagged Content** | Review user reports — dismiss, remove idea, or ban user. View full Crucible conversation that led to the post |
+| **API Costs** | Hourly spend chart, monthly vs cap, top 10 most expensive sessions by username |
+| **Seed Generator** | Generate and post ideas to the feed as the admin account. Deducts 1 credit per post (20 credits/month) |
+| **Users** | Search users, view profile + ideas + credit history, adjust credits, change tier, soft-delete, unban, hard-delete |
+| **Settings** | Toggle tier upgrades and turn extensions on/off |
+
+---
+
+### Admin Access
+
+Admin status is controlled by the `is_admin` boolean column on the `profiles` table — set manually in Supabase for trusted accounts:
+
+```sql
+UPDATE profiles SET is_admin = TRUE, tier = 'admin' WHERE id = '<user-uuid>';
+```
+
+Admin accounts:
+- Have `tier = 'admin'` (10 turns/session, 20 credits/month)
+- Can access `/admin` panel
+- Cannot use the Crucible (blocked at the UI level)
+- "Enter the Crucible" button is hidden in the header
+
+---
+
 ## Security Notes
 
 - All secrets in environment variables — never committed to source control

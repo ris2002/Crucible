@@ -24,7 +24,9 @@ function ChatModal({ flagId, onClose }) {
           <button onClick={onClose} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '1.2rem' }}>×</button>
         </div>
         <div style={{ overflowY: 'auto', padding: 20, flex: 1 }}>
-          {!data ? <div>Loading...</div> : data.messages.length === 0 ? <div style={{ color: 'var(--gray)' }}>No conversation found.</div> : data.messages.map((m, i) => (
+          {!data ? <div>Loading...</div> : data.messages.length === 0 ? (
+            <div style={{ color: 'var(--gray)' }}>No conversation found.</div>
+          ) : data.messages.map((m, i) => (
             <div key={i} style={{ marginBottom: 12 }}>
               <div style={{ fontSize: '0.7rem', fontWeight: 700, color: m.role === 'user' ? 'var(--dark)' : 'var(--orange)', textTransform: 'uppercase', marginBottom: 4 }}>
                 {m.role === 'user' ? 'User' : 'Crucible AI'}
@@ -40,10 +42,51 @@ function ChatModal({ flagId, onClose }) {
   )
 }
 
+function ConfirmInline({ label, confirmLabel, danger = false, onConfirm, loading }) {
+  const [open, setOpen] = useState(false)
+  if (!open) return (
+    <button
+      className="btn btn-sm"
+      style={danger
+        ? { background: '#FFF0F0', color: '#C00', border: '1px solid #FFD0D0' }
+        : { background: '#C00', color: '#fff', border: 'none' }}
+      onClick={() => setOpen(true)}
+    >
+      {label}
+    </button>
+  )
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#FFF8F8', border: '1px solid #FFD0D0', borderRadius: 6, padding: '6px 10px' }}>
+      <span style={{ fontSize: '0.78rem', color: '#C00' }}>Sure?</span>
+      <button
+        className="btn btn-sm"
+        style={{ background: '#C00', color: '#fff', border: 'none', padding: '3px 10px' }}
+        disabled={loading}
+        onClick={() => { onConfirm(); setOpen(false) }}
+      >
+        {loading ? '...' : confirmLabel}
+      </button>
+      <button
+        className="btn btn-sm"
+        style={{ background: 'transparent', border: 'none', color: 'var(--gray)', padding: '3px 8px' }}
+        onClick={() => setOpen(false)}
+      >
+        Cancel
+      </button>
+    </div>
+  )
+}
+
 function FlagCard({ flag, onAction }) {
   const [showChat, setShowChat] = useState(false)
+  const [acting, setActing] = useState('')
   const idea = flag.ideas || {}
   const reporter = flag.reporter
+
+  async function doAction(type) {
+    setActing(type)
+    try { await onAction(type, flag.id) } finally { setActing('') }
+  }
 
   return (
     <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 'var(--radius-card)', padding: 20, marginBottom: 16 }}>
@@ -58,7 +101,7 @@ function FlagCard({ flag, onAction }) {
       <div style={{ fontWeight: 600, marginBottom: 6 }}>{idea.title}</div>
       <div style={{ fontSize: '0.875rem', color: 'var(--gray)', marginBottom: 12, lineHeight: 1.6 }}>{idea.summary}</div>
 
-      <div style={{ fontSize: '0.8rem', marginBottom: 12 }}>
+      <div style={{ fontSize: '0.8rem', marginBottom: 14 }}>
         <span style={{ color: 'var(--gray)' }}>Author: </span>
         <strong>{(idea.profiles || {}).username || 'unknown'}</strong>
         <span style={{ color: 'var(--gray)', marginLeft: 16 }}>Reason: </span>
@@ -68,11 +111,22 @@ function FlagCard({ flag, onAction }) {
         {flag.reason_detail && <span style={{ color: 'var(--gray)', marginLeft: 8 }}>— {flag.reason_detail}</span>}
       </div>
 
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         <button className="btn btn-secondary btn-sm" onClick={() => setShowChat(true)}>View conversation</button>
-        <button className="btn btn-secondary btn-sm" onClick={() => onAction('dismiss', flag.id)}>Dismiss</button>
-        <button className="btn btn-sm" style={{ background: '#FFF0F0', color: '#C00', border: '1px solid #FFD0D0' }} onClick={() => onAction('delete', flag.id)}>Delete post</button>
-        <button className="btn btn-sm" style={{ background: '#C00', color: '#fff', border: 'none' }} onClick={() => onAction('ban', flag.id)}>Ban user</button>
+        <button className="btn btn-secondary btn-sm" onClick={() => doAction('dismiss')} disabled={!!acting}>Dismiss</button>
+        <ConfirmInline
+          label="Delete post"
+          confirmLabel="Yes, delete"
+          danger
+          loading={acting === 'delete'}
+          onConfirm={() => doAction('delete')}
+        />
+        <ConfirmInline
+          label="Ban user"
+          confirmLabel="Yes, ban"
+          loading={acting === 'ban'}
+          onConfirm={() => doAction('ban')}
+        />
       </div>
     </div>
   )
@@ -89,19 +143,10 @@ export default function AdminFlagged() {
   useEffect(() => { load() }, [])
 
   async function handleAction(type, flagId) {
-    const confirm_map = {
-      ban: 'Ban this user and remove all their content?',
-      delete: 'Remove this post from the feed?',
-    }
-    if (confirm_map[type] && !window.confirm(confirm_map[type])) return
-    try {
-      if (type === 'dismiss') await adminApi.dismissFlag(flagId)
-      if (type === 'delete') await adminApi.deleteFlaggedIdea(flagId)
-      if (type === 'ban') await adminApi.banUserViaFlag(flagId)
-      setFlags(prev => prev.filter(f => f.id !== flagId))
-    } catch (e) {
-      alert(e.message)
-    }
+    if (type === 'dismiss') await adminApi.dismissFlag(flagId)
+    if (type === 'delete') await adminApi.deleteFlaggedIdea(flagId)
+    if (type === 'ban') await adminApi.banUserViaFlag(flagId)
+    setFlags(prev => prev.filter(f => f.id !== flagId))
   }
 
   if (loading) return <div style={{ color: 'var(--gray)' }}>Loading...</div>

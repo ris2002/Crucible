@@ -10,6 +10,56 @@ function timeAgo(ts) {
   return `${d}d ago`
 }
 
+function IdeaRemoveButton({ userId, ideaId, onRemoved }) {
+  const [confirm, setConfirm] = useState(false)
+  const [removing, setRemoving] = useState(false)
+  const [done, setDone] = useState(false)
+
+  if (done) return <span style={{ fontSize: '0.75rem', color: '#276749' }}>✓ Removed</span>
+
+  if (!confirm) return (
+    <button
+      className="btn btn-sm"
+      style={{ background: '#FFF0F0', color: '#C00', border: '1px solid #FFD0D0', flexShrink: 0 }}
+      onClick={() => setConfirm(true)}
+    >
+      Remove
+    </button>
+  )
+
+  return (
+    <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+      <span style={{ fontSize: '0.75rem', color: '#C00' }}>Sure?</span>
+      <button
+        className="btn btn-sm"
+        style={{ background: '#C00', color: '#fff', border: 'none', padding: '3px 10px' }}
+        disabled={removing}
+        onClick={async () => {
+          setRemoving(true)
+          try {
+            await adminApi.deleteUserIdea(userId, ideaId)
+            setDone(true)
+            onRemoved()
+          } catch (e) {
+            setConfirm(false)
+          } finally {
+            setRemoving(false)
+          }
+        }}
+      >
+        {removing ? '...' : 'Yes'}
+      </button>
+      <button
+        className="btn btn-sm"
+        style={{ background: 'transparent', border: 'none', color: 'var(--gray)', padding: '3px 8px' }}
+        onClick={() => setConfirm(false)}
+      >
+        Cancel
+      </button>
+    </div>
+  )
+}
+
 function UserDetail({ userId, onClose }) {
   const [data, setData] = useState(null)
   const [credits, setCredits] = useState('')
@@ -112,7 +162,11 @@ function UserDetail({ userId, onClose }) {
                   <div style={{ color: 'var(--gray)' }}>{idea.status} · {new Date(idea.created_at).toLocaleDateString()}</div>
                 </div>
                 {idea.status === 'published' && (
-                  <button className="btn btn-sm" style={{ background: '#FFF0F0', color: '#C00', border: '1px solid #FFD0D0', flexShrink: 0 }} onClick={() => action(() => adminApi.deleteUserIdea(p.id, idea.id), 'Removed from feed')}>Remove</button>
+                  <IdeaRemoveButton
+                    userId={p.id}
+                    ideaId={idea.id}
+                    onRemoved={() => setMsg('Removed from feed')}
+                  />
                 )}
               </div>
             ))}

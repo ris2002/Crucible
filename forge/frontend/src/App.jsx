@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './hooks/useAuth'
+import { CreditsProvider } from './hooks/useCredits'
 import Header from './components/Layout/Header'
 import Footer from './components/Layout/Footer'
 import FeedPage from './components/Feed/FeedPage'
@@ -18,6 +19,7 @@ import AdminPage from './components/Admin/AdminPage'
 export default function App() {
   return (
     <AuthProvider>
+      <CreditsProvider>
       <BrowserRouter>
         <Header />
         <main className="main-content">
@@ -38,6 +40,7 @@ export default function App() {
         </main>
         <Footer />
       </BrowserRouter>
+      </CreditsProvider>
     </AuthProvider>
   )
 }

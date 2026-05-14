@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForge } from '../../hooks/useForge'
+import { useCredits } from '../../hooks/useCredits'
 import { usePurchases } from '../../hooks/usePurchases'
 import { api } from '../../lib/api'
 import TurnIndicator from './TurnIndicator'
@@ -82,6 +83,7 @@ export default function ForgeChat({ session: initialSession, onComplete }) {
     setPostError('')
     try {
       const data = await forge.postIdea(forge.draft.title, forge.draft.summary, forge.draft.tags)
+      refreshCredits()
       navigate(`/idea/${data.idea_id}`)
     } catch (e) {
       setPostError(e.message)
@@ -90,6 +92,7 @@ export default function ForgeChat({ session: initialSession, onComplete }) {
   }
 
   const { purchases_enabled: purchasesEnabled } = usePurchases()
+  const { refresh: refreshCredits } = useCredits()
   const { session, messages, sending, forgeReady, draft, setDraft, warning, error } = forge
   const turnLimitReached = !forgeReady && session && (session.turns_used || 0) >= (session.max_turns || 5)
 

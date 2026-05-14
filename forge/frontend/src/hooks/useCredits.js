@@ -1,17 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useContext, createContext, useCallback } from 'react'
 import { api } from '../lib/api'
 import { useAuth } from './useAuth'
 
-export function useCredits() {
+const CreditsContext = createContext(null)
+
+export function CreditsProvider({ children }) {
   const { user, profile } = useAuth()
   const [credits, setCredits] = useState(null)
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    if (user) refresh()
-  }, [user])
-
-  async function refresh() {
+  const refresh = useCallback(async () => {
     if (!user) return
     setLoading(true)
     try {
@@ -22,13 +20,26 @@ export function useCredits() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user])
 
-  return {
-    credits: credits?.credits_remaining ?? profile?.credits_remaining ?? 0,
-    tier: credits?.tier ?? profile?.tier ?? 'free',
-    loading,
-    refresh,
-    creditsData: credits,
-  }
+  useEffect(() => {
+    if (user) refresh()
+    else setCredits(null)
+  }, [user])
+
+  return (
+    <CreditsContext.Provider value={{
+      credits: credits?.credits_remaining ?? profile?.credits_remaining ?? 0,
+      tier: credits?.tier ?? profile?.tier ?? 'free',
+      loading,
+      refresh,
+      creditsData: credits,
+    }}>
+      {children}
+    </CreditsContext.Provider>
+  )
+}
+
+export function useCredits() {
+  return useContext(CreditsContext)
 }

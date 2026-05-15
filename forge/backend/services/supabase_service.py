@@ -44,9 +44,35 @@ def get_max_turns(tier: str) -> int:
         return 10
     if tier == "scholar":
         return 12
+    if tier == "alchemist":
+        return 999
     if tier == "admin":
         return 10
     return 7
+
+
+def get_user_ai_config(user_id: str):
+    result = supabase_admin.table("profiles").select("llm_api_key,llm_provider,llm_model").eq("id", user_id).maybe_single().execute()
+    if not result.data:
+        return None, None, None
+    return result.data.get("llm_api_key"), result.data.get("llm_provider", "anthropic"), result.data.get("llm_model")
+
+
+def get_user_api_key(user_id: str):
+    key, _, _ = get_user_ai_config(user_id)
+    return key
+
+
+def store_user_ai_config(user_id: str, key: str, provider: str, model: str):
+    supabase_admin.table("profiles").update({
+        "llm_api_key": key,
+        "llm_provider": provider,
+        "llm_model": model,
+    }).eq("id", user_id).execute()
+
+
+def delete_user_api_key(user_id: str):
+    supabase_admin.table("profiles").update({"llm_api_key": None, "llm_provider": None, "llm_model": None}).eq("id", user_id).execute()
 
 
 def get_ideas(domain: str = None, genre: str = None, sort: str = "recent",
@@ -327,6 +353,18 @@ def create_flag(idea_id: str, reason: str, triggered_by: str, reporter_id: str =
         supabase_admin.table("flagged_content").insert(data).execute()
     except Exception:
         pass
+
+    try:
+        from services.email_service import send_flag_alert
+        idea = supabase_admin.table("ideas").select("title").eq("id", idea_id).maybe_single().execute()
+        idea_title = idea.data.get("title", idea_id) if idea.data else idea_id
+        reporter_username = None
+        if reporter_id:
+            rep = supabase_admin.table("profiles").select("username").eq("id", reporter_id).maybe_single().execute()
+            reporter_username = rep.data.get("username") if rep.data else None
+        send_flag_alert(triggered_by, reason, idea_title, idea_id, reporter_username, reason_detail)
+    except Exception as e:
+        print(f"[flag email] {e}")
 
 
 def get_app_settings() -> dict:

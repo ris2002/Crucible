@@ -82,3 +82,38 @@ async def mark_read(body: dict, user=Depends(get_current_user)):
     ids = body.get("ids", [])
     db.mark_notifications_read(user.id, ids)
     return {"message": "Marked as read"}
+
+
+@router.get("/me/ai-models")
+async def get_ai_models():
+    from services.ai_router import PROVIDERS
+    return {"providers": PROVIDERS}
+
+
+@router.get("/me/api-key/status")
+async def api_key_status(user=Depends(get_current_user)):
+    key, provider, model = db.get_user_ai_config(user.id)
+    return {"has_key": bool(key), "provider": provider, "model": model}
+
+
+@router.post("/me/api-key")
+async def save_api_key(body: dict, user=Depends(get_current_user)):
+    profile = db.get_profile(user.id)
+    if not profile or profile.get("tier") != "alchemist":
+        raise HTTPException(status_code=403, detail="Only Alchemist tier can store an API key")
+    key = body.get("key", "").strip()
+    provider = body.get("provider", "anthropic").strip()
+    model = body.get("model", "").strip()
+    if not key:
+        raise HTTPException(status_code=400, detail="API key is required")
+    from services.ai_router import PROVIDERS
+    if provider not in PROVIDERS:
+        raise HTTPException(status_code=400, detail="Invalid provider")
+    db.store_user_ai_config(user.id, key, provider, model)
+    return {"message": "AI config saved"}
+
+
+@router.delete("/me/api-key")
+async def delete_api_key(user=Depends(get_current_user)):
+    db.delete_user_api_key(user.id)
+    return {"message": "API key removed"}

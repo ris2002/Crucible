@@ -11,6 +11,7 @@ from services import supabase_service as db
 from services import anthropic_service as ai
 from services import stripe_service as stripe_svc
 from services.crisis_check import is_crisis, CRISIS_RESPONSE
+from services import ai_router
 
 router = APIRouter()
 
@@ -23,6 +24,9 @@ async def start_forge_session(body: CrucibleStartRequest, user=Depends(get_curre
 
     if profile["credits_remaining"] <= 0:
         raise HTTPException(status_code=402, detail="No credits remaining")
+
+    if profile.get("tier") == "alchemist" and not db.get_user_api_key(user.id):
+        raise HTTPException(status_code=402, detail="Alchemist tier requires an Anthropic API key. Add it in Settings.")
 
     built_on_idea = None
     if body.built_on_idea_id:
@@ -170,27 +174,44 @@ async def stream_forge_message(body: CrucibleMessageRequest, user=Depends(get_cu
         if original:
             build_context = f"You are building on the idea titled '{original['title']}' by {original.get('profiles', {}).get('username', 'another user')}."
 
-    system = ai.build_system_prompt(session["domain"], session["genre"], build_context)
-
     session_snapshot = dict(session)
+    is_alchemist = profile.get("tier") == "alchemist"
+
+    if is_alchemist:
+        user_api_key, user_provider, user_model = db.get_user_ai_config(user.id)
+    else:
+        user_api_key = user_provider = user_model = None
 
     async def event_generator():
         accumulated = ""
         input_tokens = 0
         output_tokens = 0
         try:
-            async with ai.async_client.messages.stream(
-                model=ai.MODEL,
-                max_tokens=1000,
-                system=system,
-                messages=history,
-            ) as stream:
-                async for text in stream.text_stream:
-                    accumulated += text
-                    yield f"data: {json.dumps({'text': text})}\n\n"
-                final_msg = await stream.get_final_message()
-                input_tokens = getattr(final_msg.usage, "input_tokens", 0)
-                output_tokens = getattr(final_msg.usage, "output_tokens", 0)
+            if is_alchemist and user_api_key:
+                stream_gen = ai_router.stream_for_user(
+                    user_provider or "anthropic", user_api_key, user_model,
+                    session["domain"], session["genre"], history, build_context
+                )
+                async for text, in_tok, out_tok in stream_gen:
+                    if text:
+                        accumulated += text
+                        yield f"data: {json.dumps({'text': text})}\n\n"
+                    if in_tok is not None:
+                        input_tokens, output_tokens = in_tok, out_tok
+            else:
+                system = ai.build_system_prompt(session["domain"], session["genre"], build_context)
+                async with ai.async_client.messages.stream(
+                    model=ai.MODEL,
+                    max_tokens=1000,
+                    system=system,
+                    messages=history,
+                ) as stream:
+                    async for text in stream.text_stream:
+                        accumulated += text
+                        yield f"data: {json.dumps({'text': text})}\n\n"
+                    final_msg = await stream.get_final_message()
+                    input_tokens = getattr(final_msg.usage, "input_tokens", 0)
+                    output_tokens = getattr(final_msg.usage, "output_tokens", 0)
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
             return

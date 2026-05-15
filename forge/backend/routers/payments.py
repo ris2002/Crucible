@@ -15,7 +15,7 @@ async def purchases_config():
 
 @router.post("/subscribe")
 async def subscribe(body: SubscribeRequest, user=Depends(get_current_user)):
-    if body.tier not in ("thinker", "scholar"):
+    if body.tier not in ("thinker", "scholar", "alchemist"):
         raise HTTPException(status_code=400, detail="Invalid tier")
 
     from services import supabase_service as db
@@ -35,6 +35,9 @@ async def extend_turns(body: dict, user=Depends(get_current_user)):
     from services import supabase_service as db
     if not db.get_purchases_enabled():
         raise HTTPException(status_code=403, detail="Purchases are currently disabled")
+    profile = db.get_profile(user.id)
+    if profile and profile.get("tier") == "alchemist":
+        raise HTTPException(status_code=400, detail="Alchemist tier has unlimited turns")
 
     session_id = body.get("session_id")
     if not session_id:

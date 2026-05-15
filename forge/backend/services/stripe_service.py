@@ -9,16 +9,19 @@ stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 PRICES = {
     "thinker": "price_thinker_monthly",
     "scholar": "price_scholar_monthly",
+    "alchemist": "price_alchemist_monthly",
 }
 
 TIER_CREDITS = {
     "thinker": 10,
     "scholar": 25,
+    "alchemist": 10,
 }
 
 TIER_ROLLOVER_CAP = {
     "thinker": 20,
     "scholar": 50,
+    "alchemist": 20,
 }
 
 
@@ -39,6 +42,7 @@ def create_subscription_checkout(user_id: str, tier: str, frontend_url: str, ema
     price_map = {
         "thinker": os.getenv("STRIPE_PRICE_THINKER", ""),
         "scholar": os.getenv("STRIPE_PRICE_SCHOLAR", ""),
+        "alchemist": os.getenv("STRIPE_PRICE_ALCHEMIST", ""),
     }
 
     session = stripe.checkout.Session.create(
@@ -88,6 +92,7 @@ def sync_subscription_from_stripe(user_id: str) -> dict:
     price_to_tier = {
         os.getenv("STRIPE_PRICE_THINKER", ""): "thinker",
         os.getenv("STRIPE_PRICE_SCHOLAR", ""): "scholar",
+        os.getenv("STRIPE_PRICE_ALCHEMIST", ""): "alchemist",
     }
     tier = price_to_tier.get(price_id)
     if not tier:
@@ -130,11 +135,11 @@ def cancel_subscription(user_id: str):
         cancelled = True
 
     if cancelled:
-        # Immediately drop to free tier — keep credits_remaining unchanged
-        supabase_admin.table("profiles").update({
-            "tier": "free",
-            "credits_monthly": 3,
-        }).eq("id", user_id).execute()
+        profile = get_profile(user_id)
+        updates = {"tier": "free", "credits_monthly": 3}
+        if profile and profile.get("tier") == "alchemist":
+            updates["llm_api_key"] = None
+        supabase_admin.table("profiles").update(updates).eq("id", user_id).execute()
 
     return cancelled
 
@@ -172,7 +177,7 @@ def process_payment_success(event):
                     "max_turns_extended": current_max + 4
                 }).eq("id", forge_session_id).execute()
 
-        elif tier in ("thinker", "scholar"):
+        elif tier in ("thinker", "scholar", "alchemist"):
             profile = get_profile(user_id)
             current_credits = profile.get("credits_remaining", 0) if profile else 0
             monthly_credits = TIER_CREDITS[tier]
@@ -195,13 +200,13 @@ def process_payment_success(event):
     elif event_type == "customer.subscription.deleted":
         customer_id = obj.get("customer")
         if customer_id:
-            profiles = supabase_admin.table("profiles").select("id").eq("stripe_customer_id", customer_id).execute()
+            profiles = supabase_admin.table("profiles").select("id,tier").eq("stripe_customer_id", customer_id).execute()
             if profiles.data:
                 user_id = profiles.data[0]["id"]
-                supabase_admin.table("profiles").update({
-                    "tier": "free",
-                    "credits_monthly": 3,
-                }).eq("id", user_id).execute()
+                updates = {"tier": "free", "credits_monthly": 3}
+                if profiles.data[0].get("tier") == "alchemist":
+                    updates["llm_api_key"] = None
+                supabase_admin.table("profiles").update(updates).eq("id", user_id).execute()
 
     elif event_type == "invoice.payment_succeeded":
         customer_id = obj.get("customer")

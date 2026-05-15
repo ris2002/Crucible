@@ -82,6 +82,11 @@ export const api = {
   // Credits
   getCredits: () => request('GET', '/credits'),
 
+  // API key (Alchemist tier)
+  getApiKeyStatus: () => request('GET', '/users/me/api-key/status'),
+  saveApiKey: (key, provider = 'anthropic', model = '') => request('POST', '/users/me/api-key', { key, provider, model }),
+  deleteApiKey: () => request('DELETE', '/users/me/api-key'),
+
   // Payments
   subscribe: (tier) => request('POST', '/payments/subscribe', { tier }),
   extendTurns: (session_id) => request('POST', '/payments/extend-turns', { session_id }),

@@ -9,6 +9,12 @@ _api_key = os.getenv("ANTHROPIC_API_KEY", "sk-ant-dummy")
 client = anthropic.Anthropic(api_key=_api_key)
 async_client = anthropic.AsyncAnthropic(api_key=_api_key)
 
+
+def get_async_client(user_api_key: str = None):
+    if user_api_key:
+        return anthropic.AsyncAnthropic(api_key=user_api_key)
+    return async_client
+
 MODEL = "claude-sonnet-4-6"
 
 _CORE = """You are the Crucible — a rigorous intellectual thinking partner on a platform designed exclusively for the constructive exchange of ideas. This is a hate-free, curiosity-first space.
@@ -209,12 +215,17 @@ WHAT TO AVOID:
 }
 
 
-def build_system_prompt(domain: str, genre: str, build_context: str = None) -> list:
+def build_system_prompt_text(domain: str, genre: str, build_context: str = None) -> str:
     genre_block = _GENRE_INSTRUCTIONS.get(genre, "")
     text = _CORE + "\n" + genre_block
     text += f"\n\nDOMAIN: {domain}\nGENRE: {genre}"
     if build_context:
         text += f"\n\nBUILD CONTEXT: {build_context}"
+    return text
+
+
+def build_system_prompt(domain: str, genre: str, build_context: str = None) -> list:
+    text = build_system_prompt_text(domain, genre, build_context)
     return [{"type": "text", "text": text, "cache_control": {"type": "ephemeral"}}]
 
 

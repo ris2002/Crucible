@@ -11,9 +11,10 @@ A full-stack platform for forging, sharing, and discussing ideas. Users converse
 | Frontend | React 18, Vite, React Router v6 |
 | Backend | FastAPI (Python 3.11) |
 | Database | Supabase (PostgreSQL + Auth + RLS) |
-| AI | Anthropic Claude Sonnet 4.6 |
+| AI (platform) | Anthropic Claude Sonnet 4.6 |
+| AI (Alchemist) | Anthropic / OpenAI / Google Gemini (user's own key) |
 | Payments | Stripe (subscriptions + one-time payments) |
-| Hosting | Render (backend) + Vercel or Render static (frontend) |
+| Hosting | Render (backend) + Vercel (frontend) |
 
 ---
 
@@ -34,29 +35,36 @@ IdeaForage/
 │   │   ├── routers/
 │   │   │   ├── forge.py           # Crucible session endpoints
 │   │   │   ├── ideas.py           # Feed, idea detail, sparks, comments
-│   │   │   ├── users.py           # Profiles, follows, notifications
+│   │   │   ├── users.py           # Profiles, follows, notifications, API key management
 │   │   │   ├── comments.py        # Comment sparks and reports
 │   │   │   ├── credits.py         # Credit balance and history
 │   │   │   ├── payments.py        # Stripe subscriptions and webhooks
 │   │   │   └── admin.py           # Admin-only panel endpoints
 │   │   └── services/
 │   │       ├── anthropic_service.py  # Claude AI + genre prompts
+│   │       ├── ai_router.py          # Multi-provider streaming (Anthropic/OpenAI/Google)
+│   │       ├── crisis_check.py       # Keyword crisis detection
+│   │       ├── email_service.py      # Admin email alerts
 │   │       ├── supabase_service.py   # All DB operations
 │   │       └── stripe_service.py     # Stripe API operations
 │   └── frontend/
 │       ├── package.json
 │       ├── vite.config.js
+│       ├── vercel.json            # SPA routing fix for Vercel
 │       └── src/
-│           ├── App.jsx            # Routes and auth provider
+│           ├── App.jsx            # Routes, auth provider, credits provider
 │           ├── lib/
 │           │   ├── api.js         # All API calls
 │           │   └── supabase.js    # Supabase client
 │           ├── hooks/
 │           │   ├── useAuth.js     # Auth state + profile
 │           │   ├── useForge.js    # Crucible session state + streaming
-│           │   └── useCredits.js  # Credit balance
+│           │   ├── useCredits.js  # Shared credits context (real-time updates)
+│           │   └── usePurchases.js # Purchases/upgrades toggle config
 │           └── components/
-│               ├── Layout/Header.jsx
+│               ├── Layout/
+│               │   ├── Header.jsx
+│               │   └── Footer.jsx  # Disclaimers
 │               ├── Feed/
 │               │   ├── FeedPage.jsx
 │               │   ├── FilterBar.jsx
@@ -64,7 +72,7 @@ IdeaForage/
 │               ├── Forge/
 │               │   ├── ForgePage.jsx
 │               │   ├── ForgeChat.jsx
-│               │   ├── ForgeBanner.jsx
+│               │   ├── ForgeBanner.jsx  # Disclaimers
 │               │   ├── TurnIndicator.jsx
 │               │   └── TurnWarning.jsx
 │               ├── Auth/
@@ -72,11 +80,19 @@ IdeaForage/
 │               │   ├── SignupPage.jsx
 │               │   ├── ForgotPasswordPage.jsx
 │               │   └── ResetPasswordPage.jsx
-│               ├── Profile/ProfilePage.jsx
-│               ├── Settings/SettingsPage.jsx
+│               ├── Profile/
+│               │   ├── ProfilePage.jsx
+│               │   └── SettingsPage.jsx  # Tier cards + Alchemist API key config
 │               ├── Notifications/NotificationsPage.jsx
 │               ├── Drafts/DraftsPage.jsx
-│               └── Admin/AdminPage.jsx
+│               └── Admin/
+│                   ├── AdminPage.jsx
+│                   ├── AdminDashboard.jsx
+│                   ├── AdminFlagged.jsx
+│                   ├── AdminCosts.jsx
+│                   ├── AdminSeedGenerator.jsx
+│                   ├── AdminUsers.jsx
+│                   └── AdminSettings.jsx
 ```
 
 ---
@@ -115,16 +131,22 @@ Frontend runs at `http://localhost:5173`.
 
 | Variable | Description |
 |---|---|
-| `ANTHROPIC_API_KEY` | Anthropic API key for Claude |
+| `ANTHROPIC_API_KEY` | Anthropic API key for Claude (platform default) |
 | `SUPABASE_URL` | Your Supabase project URL |
 | `SUPABASE_SERVICE_KEY` | Supabase service role key (bypasses RLS) |
 | `STRIPE_SECRET_KEY` | Stripe secret key (`sk_test_...` or `sk_live_...`) |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret (`whsec_...`) |
 | `STRIPE_PRICE_THINKER` | Stripe Price ID for Thinker monthly plan |
 | `STRIPE_PRICE_SCHOLAR` | Stripe Price ID for Scholar monthly plan |
+| `STRIPE_PRICE_ALCHEMIST` | Stripe Price ID for Alchemist monthly plan (£7/month) |
 | `STRIPE_PRICE_TURNS` | Stripe Price ID for turn extension (+4 turns, £2) |
 | `FRONTEND_URL` | Comma-separated allowed origins e.g. `http://localhost:5173,https://yourapp.vercel.app` |
 | `MONTHLY_SPEND_CAP_GBP` | Monthly Anthropic spend cap in GBP (default: `100`) |
+| `SMTP_HOST` | SMTP server (default: `smtp.gmail.com`) |
+| `SMTP_PORT` | SMTP port (default: `587`) |
+| `SMTP_USER` | Email address to send alerts from |
+| `SMTP_PASS` | App password for SMTP (Gmail: generate under Security → App Passwords) |
+| `ADMIN_EMAIL` | Email address to receive admin alerts |
 
 ### Frontend (`forge/frontend/.env.local`)
 
@@ -147,15 +169,42 @@ Auto-created on signup via Supabase trigger.
 | `id` | UUID | References `auth.users` |
 | `username` | TEXT UNIQUE | Set on signup |
 | `bio` | TEXT | Max 160 chars |
-| `tier` | TEXT | `free` / `thinker` / `scholar` / `admin` |
+| `tier` | TEXT | `free` / `thinker` / `scholar` / `alchemist` / `admin` |
 | `credits_remaining` | INT | Default 3 |
 | `credits_monthly` | INT | Default 3 |
-| `lifetime_sessions_used` | INT | Incremented on Crucible session start |
+| `lifetime_sessions_used` | INT | Incremented on idea post |
 | `stripe_customer_id` | TEXT | Set on first Stripe checkout |
+| `llm_api_key` | TEXT | Alchemist only — stored API key for their chosen provider |
+| `llm_provider` | TEXT | Alchemist only — `anthropic` / `openai` / `google` |
+| `llm_model` | TEXT | Alchemist only — specific model ID |
 | `is_admin` | BOOLEAN | Must be set manually in Supabase for admin access |
 | `banned` | BOOLEAN | Set by admin |
 | `soft_deleted` | BOOLEAN | Set by admin, hides ideas |
 | `created_at` | TIMESTAMPTZ | |
+
+**SQL migrations required for existing databases:**
+```sql
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS llm_api_key TEXT DEFAULT NULL;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS llm_provider TEXT DEFAULT 'anthropic';
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS llm_model TEXT DEFAULT NULL;
+```
+
+### `app_settings`
+Single-row config table (`id = 1`).
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | INT | Always 1 |
+| `purchases_enabled` | BOOLEAN | Controls turn extension purchases |
+| `upgrades_enabled` | BOOLEAN | Controls new tier subscriptions |
+| `cost_reset_at` | TIMESTAMPTZ | Timestamp of last admin cost reset |
+
+**SQL migrations required:**
+```sql
+ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS upgrades_enabled BOOLEAN DEFAULT TRUE;
+ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS cost_reset_at TIMESTAMPTZ DEFAULT NULL;
+UPDATE app_settings SET upgrades_enabled = TRUE WHERE id = 1;
+```
 
 ### `ideas`
 
@@ -190,7 +239,7 @@ Auto-created on signup via Supabase trigger.
 | `draft_title` | TEXT | Set when CRUCIBLE_READY triggered |
 | `draft_summary` | TEXT | |
 | `draft_tags` | TEXT[] | |
-| `status` | TEXT | `active` / `draft` / `posted` / `abandoned` |
+| `status` | TEXT | `active` / `draft` / `posted` |
 | `idea_id` | UUID | FK → ideas, set after posting |
 | `input_tokens` | INT | Cumulative input tokens used |
 | `output_tokens` | INT | Cumulative output tokens used |
@@ -198,107 +247,93 @@ Auto-created on signup via Supabase trigger.
 | `created_at` | TIMESTAMPTZ | |
 | `updated_at` | TIMESTAMPTZ | |
 
-### `comments`
-
-| Column | Type | Notes |
-|---|---|---|
-| `id` | UUID | PK |
-| `author_id` | UUID | FK → profiles |
-| `idea_id` | UUID | FK → ideas |
-| `parent_id` | UUID | FK → comments (for replies) |
-| `content` | TEXT | Minimum 50 words enforced |
-| `word_count` | INT | |
-| `spark_count` | INT | Default 0 |
-| `created_at` | TIMESTAMPTZ | |
-
-### `sparks`
-Unified table for both idea sparks and comment sparks.
-
-| Column | Type | Notes |
-|---|---|---|
-| `id` | UUID | PK |
-| `user_id` | UUID | FK → profiles |
-| `idea_id` | UUID | FK → ideas (nullable) |
-| `comment_id` | UUID | FK → comments (nullable) |
-| `created_at` | TIMESTAMPTZ | |
-
-Constraint: exactly one of `idea_id` or `comment_id` must be set.
-
-### `follows`
-
-| Column | Type | Notes |
-|---|---|---|
-| `follower_id` | UUID | FK → profiles |
-| `following_id` | UUID | FK → profiles |
-| `created_at` | TIMESTAMPTZ | |
-
-Constraint: `follower_id != following_id`.
-
-### `notifications`
-
-| Column | Type | Notes |
-|---|---|---|
-| `id` | UUID | PK |
-| `user_id` | UUID | Recipient |
-| `type` | TEXT | `spark` / `comment` / `build` / `follow` / `new_idea_from_follow` |
-| `actor_id` | UUID | FK → profiles (who triggered it) |
-| `idea_id` | UUID | FK → ideas (optional) |
-| `comment_id` | UUID | FK → comments (optional) |
-| `read` | BOOLEAN | Default false |
-| `created_at` | TIMESTAMPTZ | |
-
-### `credit_transactions`
-
-| Column | Type | Notes |
-|---|---|---|
-| `id` | UUID | PK |
-| `user_id` | UUID | FK → profiles |
-| `amount` | INT | Positive = added, negative = deducted |
-| `type` | TEXT | `post` / `subscription` / `renewal` |
-| `description` | TEXT | |
-| `stripe_payment_id` | TEXT | |
-| `created_at` | TIMESTAMPTZ | |
-
-### `flagged_content`
-
-| Column | Type | Notes |
-|---|---|---|
-| `id` | UUID | PK |
-| `idea_id` | UUID | FK → ideas |
-| `reporter_id` | UUID | FK → profiles (null if system-triggered) |
-| `reason` | TEXT | `spam` / `misinformation` / `harassment` / `off-topic` / `other` / `ai_redirect` / `keyword_match` |
-| `reason_detail` | TEXT | Optional free-text detail |
-| `triggered_by` | TEXT | `user` or `system` |
-| `reviewed` | BOOLEAN | Default false |
-| `dismissed` | BOOLEAN | Default false |
-| `created_at` | TIMESTAMPTZ | |
-
-### `admin_actions`
-
-| Column | Type | Notes |
-|---|---|---|
-| `id` | UUID | PK |
-| `admin_email` | TEXT | |
-| `action_type` | TEXT | `dismiss_flag` / `delete_idea` / `ban_user` / `adjust_credits` / `change_tier` / `seed_post` / `soft_delete` / `unban` / `hard_delete` |
-| `target_type` | TEXT | `flag` / `idea` / `user` |
-| `target_id` | TEXT | |
-| `notes` | TEXT | |
-| `created_at` | TIMESTAMPTZ | |
+### `comments`, `sparks`, `follows`, `notifications`, `credit_transactions`, `flagged_content`, `admin_actions`
+Unchanged from initial schema. See `forge/schema.sql` for full definitions.
 
 ---
 
 ## Tier System
 
-| Tier | Credits/Month | Turns/Session | Notes |
-|---|---|---|---|
-| `free` | 3 | 5 | Default on signup |
-| `thinker` | 10 | 8 | Paid subscription |
-| `scholar` | 25 | 8 | Paid subscription |
-| `admin` | 20 | 10 | Cannot use the Crucible; uses seed generator |
+| Tier | Price | Credits/Month | Turns/Session | Notes |
+|---|---|---|---|---|
+| `free` | £0 | 3 (lifetime) | 7 | Default on signup |
+| `thinker` | £4/mo | 10 | 10 | Credits roll over (max 20) |
+| `scholar` | £9/mo | 25 | 12 | Credits roll over (max 50) |
+| `alchemist` | £7/mo | 10 | Unlimited | BYOK — user supplies their own AI API key |
+| `admin` | — | 20 | 10 | Cannot use the Crucible; uses seed generator |
 
-**Credits** are deducted only when posting an idea (1 credit per post). Starting or abandoning a Crucible session is free. Credits accumulate — resubscribing adds new credits on top of existing balance. Cancellation keeps remaining credits but drops the monthly allocation to 3 (free tier).
+**Credits** are deducted only when posting (1 credit per post). Starting or abandoning a session is free.
 
-**Turn extensions** (+4 turns) can be purchased mid-session for £2 via Stripe.
+**Turn extensions** (+4 turns for £2) can be purchased mid-session. Not available to Alchemist (already unlimited).
+
+---
+
+## Alchemist Tier — Bring Your Own Key
+
+Alchemist users bring their own AI API key. Their sessions run on their own provider quota — the platform incurs zero LLM cost for them.
+
+### Supported providers
+
+| Provider | Models available |
+|---|---|
+| Anthropic (Claude) | Claude Opus 4.7, Claude Sonnet 4.6, Claude Haiku 4.5 |
+| OpenAI (ChatGPT) | GPT-4o, GPT-4o Mini |
+| Google (Gemini) | Gemini 2.0 Flash, Gemini 1.5 Pro, Gemini 1.5 Flash |
+
+### How it works
+
+1. User subscribes to Alchemist via Stripe
+2. In **Settings → AI Model**, they select a provider and model, enter their API key, and click **Save config**
+3. The key is stored encrypted in the `profiles` table (`llm_api_key`, `llm_provider`, `llm_model`)
+4. On every Crucible session, `forge.py` detects the Alchemist tier, fetches the stored key, and routes the request through `ai_router.py` using the appropriate provider's SDK
+5. The same system prompt and all safety guardrails apply regardless of provider
+6. If no key is stored, the session cannot start — the user is prompted to add one in Settings
+
+### Key deletion on downgrade
+
+When an Alchemist user cancels their subscription (via the Settings page or Stripe webhook), their `llm_api_key`, `llm_provider`, and `llm_model` are immediately wiped from the database. The cancel confirmation dialog warns them of this explicitly.
+
+---
+
+## AI Safety Guardrails
+
+### Crisis protocol (highest priority)
+
+Before any message reaches the AI, the backend runs a regex check (`crisis_check.py`) against 25 patterns covering:
+- Direct statements: "kill myself", "end my life", "want to die"
+- Self-harm: "self-harm", "cut myself", "hurt myself"
+- Hopelessness: "no reason to live", "not worth living"
+- Methods: "overdose", "hang myself", "jump off"
+
+If triggered, the AI is **bypassed entirely**. A hardcoded crisis response is returned immediately with region-specific helplines:
+
+- **UK:** Samaritans — 116 123 or text SHOUT to 85258
+- **US:** 988 Suicide & Crisis Lifeline
+- **India:** iCall — 9152987821
+- **Australia:** Lifeline — 13 11 14
+- **Everywhere else:** findahelpline.com
+
+The chat input is locked after the crisis response. The session cannot continue.
+
+### Scope guardrail
+
+If a user drifts into personal chat, venting, or life advice requests, the AI redirects with a single firm message and waits for an idea. It does not engage with personal content.
+
+### Political neutrality
+
+The AI engages with political topics but never advocates for, favours, or disparages any party, politician, ideology, or movement. Equal critical pressure is applied to all sides.
+
+### Hate/inflammatory content
+
+If a message is framed to inflame rather than illuminate, the AI redirects without moralising:
+*"That framing is more heat than light. What is the underlying question you are actually trying to work through?"*
+
+### Disclaimers
+
+Shown in the Forge banner (at session start) and the site footer:
+- For brainstorming only
+- Users are responsible for their own decisions
+- AI may hallucinate or provide inaccurate information
 
 ---
 
@@ -306,325 +341,132 @@ Constraint: `follower_id != following_id`.
 
 All authenticated endpoints require `Authorization: Bearer <supabase_jwt>` header.
 
----
-
 ### Forge — `/forge`
 
 #### `POST /forge/start`
-Start a new Crucible session.
+Start a new Crucible session. Checks credit balance. For Alchemist users, also checks that an API key is stored.
 
-**Body:**
-```json
-{ "domain": "Technology", "genre": "Problem", "built_on_idea_id": null }
-```
+**Body:** `{ "domain": "Technology", "genre": "Problem", "built_on_idea_id": null }`
 
-**Response:**
-```json
-{
-  "session_id": "uuid",
-  "turns_used": 0,
-  "max_turns": 5,
-  "domain": "Technology",
-  "genre": "Problem",
-  "messages": [],
-  "status": "active",
-  "built_on": { "id": "uuid", "title": "..." }
-}
-```
-
-**Errors:** `402` no credits, `404` profile not found.
+**Errors:** `402` no credits or Alchemist key missing, `404` profile not found.
 
 ---
 
 #### `POST /forge/stream` *(primary — streaming)*
-Send a message and receive the AI response as a Server-Sent Events stream.
+Send a message and receive the AI response as Server-Sent Events.
 
-**Body:**
+**Crisis intercept:** If the message matches any crisis pattern, returns the crisis response immediately without calling any AI provider.
+
+**Alchemist routing:** Uses the user's stored provider/model/key via `ai_router.py` instead of the platform Anthropic client.
+
+**SSE Events:**
 ```json
-{ "session_id": "uuid", "message": "your text" }
+{ "text": "fragment" }
+{ "done": true, "turns_used": 3, "max_turns": 10, "forge_ready": false, "warning": true }
+{ "done": true, "forge_ready": true, "draft_title": "...", "draft_summary": "...", "draft_tags": [...] }
+{ "crisis": true, "done": true }
 ```
-
-**SSE Events — text chunk** (fires repeatedly as tokens arrive):
-```json
-{ "text": "fragment of the response" }
-```
-
-**SSE Events — done** (fires once at end):
-```json
-{
-  "done": true,
-  "turns_used": 3,
-  "max_turns": 5,
-  "forge_ready": false,
-  "warning": true
-}
-```
-
-**SSE Events — done with CRUCIBLE_READY:**
-```json
-{
-  "done": true,
-  "turns_used": 5,
-  "max_turns": 5,
-  "forge_ready": true,
-  "warning": false,
-  "draft_title": "...",
-  "draft_summary": "...",
-  "draft_tags": ["tag1", "tag2", "tag3", "tag4", "tag5"]
-}
-```
-
-**Errors:** `400` turn limit / message over 500 words / session already posted.
 
 ---
 
 #### `POST /forge/message` *(fallback — non-streaming)*
-Same logic as `/forge/stream` but returns a single JSON response after full generation.
-
-**Response:**
-```json
-{
-  "reply": "...",
-  "turns_used": 3,
-  "max_turns": 5,
-  "forge_ready": false,
-  "draft_title": null,
-  "draft_summary": null,
-  "draft_tags": null,
-  "warning": false
-}
-```
+Same logic, returns single JSON response after full generation.
 
 ---
 
 #### `POST /forge/post`
-Post a completed idea from a session. Deducts 1 credit.
-
-**Body:** `{ "session_id": "uuid", "title": "...", "summary": "...", "tags": ["tag1"] }`
-
-**Response:** `{ "idea_id": "uuid", "message": "Idea posted successfully" }`
-
-**Side effects:** Notifies author's followers, notifies original idea author if this is a build, auto-flags if AI redirect was triggered or hate speech keywords detected in title/summary.
+Post completed idea. Deducts 1 credit. Auto-flags if AI redirect was triggered or hate keywords detected.
 
 ---
 
-#### `POST /forge/save-draft`
-Save session as draft without posting. **Body:** `{ "session_id": "uuid" }`
-
----
-
-#### `POST /forge/extend`
-Create a Stripe Checkout URL for purchasing +4 turns (£2).
-
-**Body:** `{ "session_id": "uuid" }`
-
-**Response:** `{ "checkout_url": "https://checkout.stripe.com/...", "checkout_id": "cs_..." }`
-
----
-
-#### `GET /forge/drafts`
-Returns all draft sessions for the authenticated user.
-
----
-
-#### `GET /forge/session/{session_id}`
-Returns full session data including messages, turn counts, and draft fields.
-
----
-
-### Ideas — `/ideas`
-
-#### `GET /ideas`
-Fetch the public feed.
-
-| Param | Type | Default | Description |
-|---|---|---|---|
-| `domain` | string | — | Filter by domain |
-| `genre` | string | — | Filter by genre |
-| `sort` | string | `recent` | `recent` or `sparked` |
-| `page` | int | 1 | Page number |
-| `limit` | int | 20 | Items per page |
-| `following` | bool | false | Only followed users' ideas |
-| `username` | string | — | Filter by author username |
-| `date_from` | string | — | ISO date lower bound |
-| `date_to` | string | — | ISO date upper bound |
-
-**Response:** `{ "ideas": [...], "total": 100, "page": 1 }`
-
----
-
-#### `GET /ideas/{idea_id}`
-Full idea detail with author profile, parent idea (if a build), and spark status for the current user.
-
----
-
-#### `POST /ideas/{idea_id}/spark`
-Toggle spark on/off. **Response:** `{ "sparked": true, "spark_count": 42 }`
-
----
-
-#### `POST /ideas/{idea_id}/report`
-**Body:** `{ "reason": "spam", "reason_detail": "optional" }`
-
-Reason options: `spam`, `misinformation`, `harassment`, `off-topic`, `other`.
-
----
-
-#### `GET /ideas/{idea_id}/comments`
-Paginated comments with nested replies. **Params:** `?page=1` (20 per page)
-
----
-
-#### `POST /ideas/{idea_id}/comments`
-**Body:** `{ "content": "...", "parent_id": null }`
+#### `POST /forge/save-draft`, `POST /forge/extend`, `GET /forge/drafts`, `GET /forge/session/{id}`
+Unchanged from initial implementation.
 
 ---
 
 ### Users — `/users`
 
-#### `GET /users/{username}`
-Public profile: bio, tier, follower/following counts, idea count, follow status.
+#### `GET /users/me/api-key/status`
+Returns `{ "has_key": bool, "provider": "anthropic", "model": "claude-sonnet-4-6" }`.
 
-#### `GET /users/{username}/ideas`
-Paginated published ideas. **Params:** `?page=1`
+#### `POST /users/me/api-key`
+Store AI config for Alchemist tier. Restricted to `tier = alchemist`.
 
-#### `POST /users/{username}/follow`
-Toggle follow. **Response:** `{ "following": true }`
+**Body:** `{ "key": "sk-ant-...", "provider": "anthropic", "model": "claude-sonnet-4-6" }`
 
-#### `PATCH /users/me/profile`
-Update own bio (max 160 chars). **Body:** `{ "bio": "..." }`
+#### `DELETE /users/me/api-key`
+Remove stored API key, provider, and model.
 
-#### `GET /notifications/all`
-All notifications for the authenticated user.
+#### `GET /users/me/ai-models`
+Returns full provider/model list from `ai_router.PROVIDERS`.
 
-#### `POST /notifications/read`
-**Body:** `{ "ids": ["uuid1", "uuid2"] }`
-
----
-
-### Credits — `/credits`
-
-#### `GET /credits`
-Returns current balance, tier, monthly allocation, lifetime sessions used, and recent transaction history.
+All other user endpoints unchanged.
 
 ---
 
 ### Payments — `/payments`
 
 #### `POST /payments/subscribe`
-Create a Stripe Checkout session. **Body:** `{ "tier": "thinker" }` or `{ "tier": "scholar" }`
+**Body:** `{ "tier": "thinker" }` — accepts `thinker`, `scholar`, or `alchemist`.
 
-**Response:** `{ "checkout_url": "https://checkout.stripe.com/..." }`
+#### `POST /payments/extend-turns`
+Blocked for Alchemist tier (returns `400` — already unlimited).
 
----
-
-#### `POST /payments/webhook`
-Stripe webhook receiver. Register this URL in the Stripe Dashboard.
-
-Handles:
-- `checkout.session.completed` — activates subscription or turn extension
-- `customer.subscription.deleted` — reverts user to free tier
-- `invoice.payment_succeeded` — adds monthly credits on renewal
-
----
-
-#### `POST /payments/sync`
-Sync subscription state from Stripe directly. Call this on the success redirect page as a fallback for webhook timing delays.
-
----
-
-#### `POST /payments/sync-turns`
-Verify and apply a turn extension after Stripe checkout.
-
-**Body:** `{ "session_id": "forge_session_uuid", "checkout_id": "cs_..." }`
-
----
-
-#### `DELETE /payments/subscription`
-Cancel active subscription immediately. User keeps current credits; tier reverts to free.
+All other payment endpoints unchanged.
 
 ---
 
 ### Admin — `/admin`
-All endpoints require `is_admin = true` on the authenticated user's profile row. Returns `403` otherwise.
-
-#### `GET /admin/dashboard`
-Aggregate stats: flagged count, today/month spend in GBP, active users today, total/new users, total/today ideas and sessions, active subscriptions.
 
 #### `GET /admin/costs`
-Detailed cost breakdown: daily and monthly spend in GBP, % of monthly cap, hourly spend chart, top 10 most expensive sessions.
+Now includes spend since last cost reset (not just monthly). Returns `cost_reset_at` timestamp.
 
-#### `GET /admin/flagged`
-All unreviewed flagged content with idea details and reporter info.
+#### `POST /admin/costs/reset`
+Reset the cost counter. Call this after topping up your Anthropic balance. Sets `cost_reset_at` to now.
 
-#### `GET /admin/flagged/{flag_id}/session`
-Full conversation transcript for the session behind a flagged idea.
+#### `GET /admin/settings`
+Returns `{ "purchases_enabled": bool, "upgrades_enabled": bool, "cost_reset_at": "..." }`.
 
-#### `POST /admin/flagged/{flag_id}/dismiss`
-Mark flag as reviewed and dismissed with no action.
+#### `POST /admin/settings`
+Toggle either setting. **Body:** `{ "purchases_enabled": false }` or `{ "upgrades_enabled": false }`.
 
-#### `POST /admin/flagged/{flag_id}/delete-idea`
-Set idea status to `draft` (removes from feed) and mark flag reviewed.
-
-#### `POST /admin/flagged/{flag_id}/ban-user`
-Ban the idea's author: `banned=true`, `soft_deleted=true`, all their ideas hidden.
-
-#### `POST /admin/seed/generate`
-Generate a seed idea draft using Claude. Does not post.
-
-**Body:** `{ "domain": "Technology", "genre": "Observation", "hint": "optional hint" }`
-
-**Response:** `{ "idea": { "title": "...", "summary": "...", "tags": [...] } }`
-
-#### `POST /admin/seed/post`
-Post a seed idea under the admin's own account. Costs 1 credit from the admin's balance.
-
-**Body:** `{ "title": "...", "summary": "...", "domain": "...", "genre": "...", "tags": [...] }`
-
-#### `GET /admin/users`
-List all users. **Params:** `?search=` filters by username or email.
-
-#### `GET /admin/users/{user_id}`
-Full user detail: profile, all ideas, credit transaction history, session count, reports filed by and against user.
-
-#### `POST /admin/users/{user_id}/credits`
-Override credit balance. **Body:** `{ "credits": 10 }`
-
-#### `POST /admin/users/{user_id}/tier`
-Change tier. **Body:** `{ "tier": "scholar" }`
-
-#### `DELETE /admin/users/{user_id}/ideas/{idea_id}`
-Remove idea from feed (sets status to `draft`).
-
-#### `POST /admin/users/{user_id}/soft-delete`
-Soft-delete: `banned=true`, `soft_deleted=true`, all ideas hidden.
-
-#### `POST /admin/users/{user_id}/unban`
-Reverse soft-delete: restores user and republishes their ideas.
-
-#### `POST /admin/users/{user_id}/hard-delete`
-Permanently delete user and their auth account. Requires username confirmation.
-
-**Body:** `{ "confirm_username": "their_username" }`
+All other admin endpoints unchanged.
 
 ---
 
-## Frontend Routes
+## Admin Controls
 
-| Route | Component | Auth |
+### Purchase & Upgrade Toggles
+
+Two independent kill switches in **Admin Panel → Settings**. Take effect immediately, no redeployment required.
+
+| Toggle | What it controls | Alchemist |
 |---|---|---|
-| `/` | FeedPage | No |
-| `/forge` | ForgePage | Yes |
-| `/idea/:id` | IdeaDetailPage | No |
-| `/profile/:username` | ProfilePage | No |
-| `/login` | LoginPage | No |
-| `/signup` | SignupPage | No |
-| `/forgot-password` | ForgotPasswordPage | No |
-| `/reset-password` | ResetPasswordPage | No |
-| `/notifications` | NotificationsPage | Yes |
-| `/drafts` | DraftsPage | Yes |
-| `/settings` | SettingsPage | Yes |
-| `/admin` | AdminPage | Yes + is_admin |
+| **Tier Upgrades** | New subscriptions to Thinker, Scholar, or Alchemist | Blocked if disabled |
+| **Turn Extensions** | Buying +4 turns mid-session for £2 | N/A (Alchemist has unlimited turns) |
+
+### Cost Reset
+
+In **Admin Panel → API Costs**, the **↺ Reset Counter** button (top-right) resets the "spend since last top-up" tracker. Press this each time you top up your Anthropic balance. The hourly chart and daily spend continue regardless; only the cumulative since-reset counter resets.
+
+### Admin Email Alerts
+
+Every flag — whether user-reported or system auto-detected — sends an email to `ADMIN_EMAIL`:
+
+| Flag type | Email subject |
+|---|---|
+| User report | `Crucible - User Report: {reason}` |
+| Auto-flag (keyword/AI redirect) | `Crucible - Auto-flag: {reason}` |
+
+The email includes the idea title, reason, detail, reporter username (or "system"), and a direct link to the admin panel. Emails are sent in a background thread and never delay the API response.
+
+**Setup:** Add `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `ADMIN_EMAIL` to backend env vars. For Gmail, generate an App Password under Google Account → Security → 2-Step Verification → App Passwords.
+
+### Post Deletion UX
+
+Inline confirmations replace browser dialogs for all destructive admin actions:
+- **Flagged Content:** "Delete post" and "Ban user" expand to show `Sure? [Yes] [Cancel]` within the card
+- **User Detail:** "Remove" button on each idea shows inline confirm, then turns to `✓ Removed` on success
 
 ---
 
@@ -632,12 +474,27 @@ Permanently delete user and their auth account. Requires username confirmation.
 
 ### How a session works
 
-1. User selects a domain and genre, clicks **Start Forging**
-2. A session is created in `forge_sessions`. No credit is deducted yet.
-3. User sends messages. Each message calls `POST /forge/stream` which streams the AI response token by token via SSE.
-4. The AI asks one sharp probing question per turn, staying strictly within the chosen genre.
-5. After 4-8 exchanges, if the idea has earned it, the AI returns a `---CRUCIBLE_READY---` block with a title, 330-480 word summary, and 5 tags.
-6. User edits the draft and clicks **Post to Feed — 1 credit**. Credit deducted here only.
+1. User selects a domain and genre, clicks **Start Forging** (1 credit required; deducted only on posting)
+2. A session is created in `forge_sessions`
+3. User sends messages via `POST /forge/stream` — response streams token by token via SSE
+4. Every message is first checked by the crisis detector before reaching any AI provider
+5. The AI asks one sharp probing question per turn, staying strictly within the chosen genre
+6. After 4-8 exchanges, if the idea has earned it, the AI returns `---CRUCIBLE_READY---` with title, summary, and tags
+7. User edits the draft and clicks **Post to Feed — 1 credit**
+
+### Session state persistence
+
+The full session state (messages, forge ready status, draft data) is cached in `localStorage`. Switching tabs or navigating away and returning restores the session from cache without an API call. Typed-but-unsent input is persisted in `sessionStorage`.
+
+### Turn limit UI
+
+- A single warning appears when one turn remains (not repeated on subsequent sends)
+- When the limit is reached, an inline panel appears near the chatbox with options to buy more turns or save the draft
+- "Buy 4 more turns" is hidden if the admin has disabled purchases
+
+### Credits display
+
+Credits are held in a shared React context (`CreditsProvider`) wrapping the whole app. The header credit badge updates immediately after posting — no page reload required.
 
 ### Genres and AI roles
 
@@ -654,8 +511,6 @@ Permanently delete user and their auth account. Requires username confirmation.
 
 ### CRUCIBLE_READY summary structure
 
-When the AI decides the idea is ready, the generated summary always follows this structure (written as continuous prose with no labels):
-
 | Section | Word budget |
 |---|---|
 | Claim | 50-80 words |
@@ -664,11 +519,54 @@ When the AI decides the idea is ready, the generated summary always follows this
 | Implication | 80-100 words |
 | **Total** | **330-480 words** |
 
-### Auto-flagging
+---
 
-Ideas are automatically flagged for admin review in two cases:
-1. **AI redirect triggered** — the Forge used the hate/inflammatory redirect phrase during the session
-2. **Keyword match** — the final title or summary contains a word from the hate speech blocklist
+## LLM Cost Minimisation
+
+### 1. Prompt Caching
+System prompt sent with `cache_control: { type: "ephemeral" }`. Anthropic caches for 5 minutes — saves ~90% of input token cost on the system block from turn 2 onward.
+
+### 2. Output Token Cap (`max_tokens=1000`)
+Hard ceiling per API call. Seed generator capped at `max_tokens=700`.
+
+### 3. Conversational Word Limit
+System prompt instructs the AI to stay under 350 words per conversational turn. Most turns generate 150-250 output tokens in practice.
+
+### 4. User Input Cap (500 Words)
+Validated at the backend before the API call. Frontend shows a live word counter above 450 words and disables Send above 500.
+
+### 5. Turn Limits per Tier
+
+| Tier | Max turns |
+|---|---|
+| free | 7 |
+| thinker | 10 |
+| scholar | 12 |
+| alchemist | Unlimited (user's own quota) |
+| admin | 10 |
+
+### 6. Alchemist Tier — Zero Platform LLM Cost
+Alchemist users pay £7/month for platform access and bring their own API key. Every LLM call in their session is charged to their own Anthropic/OpenAI/Google account — the platform pays nothing for these sessions.
+
+### 7. Token Tracking and Spend Monitoring
+Every session logs `input_tokens` and `output_tokens`. The **Admin → API Costs** panel shows daily spend, spend since last top-up vs cap, hourly breakdown, and top 10 most expensive sessions.
+
+```python
+INPUT_COST_GBP  = 3  * 0.79 / 1_000_000   # $3 per 1M input tokens
+OUTPUT_COST_GBP = 15 * 0.79 / 1_000_000   # $15 per 1M output tokens
+```
+
+### Summary
+
+| Strategy | What it saves |
+|---|---|
+| Prompt caching | ~90% of system prompt input tokens from turn 2 onward |
+| `max_tokens=1000` | Hard ceiling on output per call |
+| 350-word output instruction | Keeps most turns at 150-250 output tokens |
+| 500-word input cap | Limits conversation history growth |
+| Turn limits per tier | Caps API calls per session |
+| Alchemist BYOK | Zero platform LLM cost for these users |
+| Token tracking + admin panel | Visibility and early warning on spend |
 
 ---
 
@@ -680,225 +578,39 @@ Technology · Science & Nature · Society & Culture · Philosophy & Ethics · Bu
 
 ## Making a User Admin
 
-Admins cannot self-promote. To grant admin access:
-
 1. Go to **Supabase Dashboard → Table Editor → profiles**
 2. Find the user's row
-3. Set `is_admin = true`
-4. Set `tier = admin`
+3. Set `is_admin = true` and `tier = 'admin'`
 
-Admin accounts cannot use Forge. They access the admin panel, generate seed ideas, and post them to the feed. Seed posts appear under the admin's own username.
+Admin accounts cannot use the Crucible. They access the admin panel, generate seed ideas, and post them to the feed.
 
 ---
 
 ## Deployment
 
-### Render (Backend + Frontend)
+### Vercel (Frontend)
 
-`render.yaml` at the project root defines both services. Connect your GitHub repo in Render, then set all environment variables in the Render dashboard under each service's **Environment** tab.
+1. Import the repo in Vercel, set **Root Directory** to `forge/frontend`
+2. Add all `VITE_*` environment variables
+3. The `vercel.json` in `forge/frontend/` rewrites all routes to `index.html` — required for React Router to work on direct URL access and page refresh
 
-Set **Python version to 3.11** in the backend service under Settings → Language.
+### Render (Backend)
 
-### Vercel (Frontend Alternative)
+Connect the repo in Render, set all environment variables in the dashboard. Set **Python version to 3.11** under Settings → Language.
 
-1. Import the repo in Vercel
-2. Set **Root Directory** to `forge/frontend`
-3. Add all `VITE_*` environment variables
-4. Deploy
-
-After deploying, add the Vercel URL to `FRONTEND_URL` in the Render backend environment (comma-separated).
+After deploying, add the Vercel URL to `FRONTEND_URL` in the Render backend environment (comma-separated if multiple origins).
 
 ### Stripe Webhooks
 
-Register the backend as a webhook endpoint in Stripe Dashboard:
-
+Register:
 ```
 https://your-backend.onrender.com/payments/webhook
 ```
 
-Enable these events:
+Enable events:
 - `checkout.session.completed`
 - `customer.subscription.deleted`
 - `invoice.payment_succeeded`
-
-Copy the webhook signing secret into `STRIPE_WEBHOOK_SECRET`.
-
----
-
-## LLM Cost Minimisation
-
-Running Claude Sonnet on every Crucible turn is the biggest cost driver in the platform. The following strategies are layered together to keep it under control.
-
----
-
-### 1. Prompt Caching
-
-Every system prompt is sent to Anthropic with a `cache_control: { type: "ephemeral" }` header on the system block:
-
-```python
-# anthropic_service.py — build_system_prompt()
-return [{"type": "text", "text": text, "cache_control": {"type": "ephemeral"}}]
-```
-
-Anthropic caches this block server-side for 5 minutes. On every subsequent turn within the same session, the system prompt is served from cache rather than re-tokenised. Since the system prompt is ~500 words (~650 tokens) and is repeated on every single API call, this saves roughly **90% of input token cost on the system block** for turns 2 and beyond.
-
-This is the single biggest cost saving in the codebase.
-
----
-
-### 2. Output Token Cap (`max_tokens=1000`)
-
-The API is hard-capped at 1000 output tokens per call. The model cannot generate beyond this regardless of what it tries to write. This prevents runaway verbose responses from quietly inflating costs.
-
-For the seed generator (admin only, single call, no conversation), the cap is set lower at `max_tokens=700` since it only needs to produce a title, summary, and tags.
-
----
-
-### 3. Conversational Word Limit in the System Prompt
-
-The system prompt instructs the AI to stay under 350 words per conversational response:
-
-```
-Keep each conversational response under 350 words. Always end with a complete sentence.
-```
-
-This is a behavioural guardrail that sits above the hard token cap. Because the model tries to comply, most turns generate 150-250 output tokens rather than pushing toward the 1000-token ceiling. **You only pay for tokens actually generated** — so if the model writes 200 words, you pay for ~260 tokens, not 1000.
-
-The CRUCIBLE_READY turn is intentionally exempt from this limit since the summary needs 330-480 words. That one turn will use more tokens, but it only happens once per session.
-
----
-
-### 4. User Input Cap (500 Words)
-
-Every message the user sends is validated at the backend before it is forwarded to the API:
-
-```python
-# forge.py — /stream and /message endpoints
-if len(body.message.split()) > 500:
-    raise HTTPException(status_code=400, detail="Message exceeds 500-word limit")
-```
-
-Long user inputs directly inflate input token costs on every subsequent turn because the full conversation history is sent to the API each time. Capping inputs at 500 words limits how fast the conversation history grows.
-
-The frontend also shows a live word counter once the user passes 450 words and disables the Send button at 501+.
-
----
-
-### 5. Turn Limits per Tier
-
-Each tier has a hard turn ceiling per session:
-
-| Tier | Max Turns |
-|---|---|
-| free | 5 |
-| thinker | 8 |
-| scholar | 8 |
-| admin | 10 |
-
-This caps the maximum number of API calls and therefore the maximum token cost of a single session. A free user cannot run a 20-turn session that costs 10× what was expected.
-
-Turn extensions (+4 turns for £2) are a paid feature, so any cost above the tier cap is offset by revenue.
-
----
-
-### 6. Token Tracking and Spend Monitoring
-
-Every session logs cumulative input and output tokens to `forge_sessions`:
-
-```python
-updates = {
-    "input_tokens": (session.get("input_tokens") or 0) + input_tokens,
-    "output_tokens": (session.get("output_tokens") or 0) + output_tokens,
-}
-```
-
-The admin panel's **API Costs** page reads these to show:
-- Daily and monthly spend in GBP
-- Spend as a percentage of the monthly cap (`MONTHLY_SPEND_CAP_GBP`)
-- An hourly breakdown chart
-- The top 10 most expensive sessions by username
-
-Cost is calculated using Claude Sonnet 4.6 pricing converted to GBP:
-
-```python
-INPUT_COST_GBP  = 3  * 0.79 / 1_000_000   # $3 per 1M input tokens
-OUTPUT_COST_GBP = 15 * 0.79 / 1_000_000   # $15 per 1M output tokens
-```
-
-This gives full visibility into where spend is going before it becomes a problem.
-
----
-
-### 7. Credit System as a Rate Limiter
-
-Credits are deducted only on posting (1 credit per idea). Free users get 3 credits per month, meaning at most 3 Crucible sessions result in a posted idea. However, a user could start many sessions without posting — so the turn limits (point 5) are the primary guard against token abuse in abandoned sessions.
-
----
-
-### Summary
-
-| Strategy | Where | What it saves |
-|---|---|---|
-| Prompt caching | `anthropic_service.py` | ~90% of input tokens on system prompt from turn 2 onward |
-| `max_tokens=1000` | `anthropic_service.py`, `forge.py` | Hard ceiling on output per call |
-| 350-word output instruction | System prompt | Keeps most turns at 150-250 output tokens |
-| 500-word input cap | `forge.py` backend validation | Limits conversation history growth |
-| Turn limits per tier | `supabase_service.py` | Caps API calls per session |
-| Token tracking + admin panel | `forge_sessions` table + `admin.py` | Visibility and early warning on spend |
-
----
-
-## Admin Controls
-
-### Purchase & Upgrade Toggles
-
-Admins have two independent kill switches in the **Admin Panel → Settings** tab. Changes take effect immediately for all users with no redeployment required.
-
-| Toggle | What it controls | Effect on existing users |
-|---|---|---|
-| **Tier Upgrades** | Free users subscribing to Thinker or Scholar | **None** — existing paid users keep their tier, credits, and monthly renewals |
-| **Turn Extensions** | Buying +4 turns for £2 mid-session | **None** — in-progress sessions continue normally |
-
-**When Tier Upgrades are disabled:**
-- Upgrade buttons on the Settings page are replaced with "Unavailable"
-- `/payments/subscribe` returns HTTP 403
-- Stripe webhook handlers (`invoice.payment_succeeded`, `customer.subscription.deleted`) still fire normally — existing subscribers are fully unaffected
-
-**When Turn Extensions are disabled:**
-- "Buy 4 more turns — £2" button is hidden in the chat turn-limit panel
-- "Extend 4 turns — £2" button is hidden in the TurnWarning banner
-- `/payments/extend-turns` returns HTTP 403
-
-These settings are stored in the `app_settings` table in Supabase (single row, `id = 1`). The frontend fetches them once on load via `GET /payments/config` and caches in memory for the session.
-
----
-
-### Admin Panel Sections
-
-| Section | Description |
-|---|---|
-| **Dashboard** | Live stats: users, ideas, Crucible sessions, active subscriptions, flagged content count, spend today/month |
-| **Flagged Content** | Review user reports — dismiss, remove idea, or ban user. View full Crucible conversation that led to the post |
-| **API Costs** | Hourly spend chart, monthly vs cap, top 10 most expensive sessions by username |
-| **Seed Generator** | Generate and post ideas to the feed as the admin account. Deducts 1 credit per post (20 credits/month) |
-| **Users** | Search users, view profile + ideas + credit history, adjust credits, change tier, soft-delete, unban, hard-delete |
-| **Settings** | Toggle tier upgrades and turn extensions on/off |
-
----
-
-### Admin Access
-
-Admin status is controlled by the `is_admin` boolean column on the `profiles` table — set manually in Supabase for trusted accounts:
-
-```sql
-UPDATE profiles SET is_admin = TRUE, tier = 'admin' WHERE id = '<user-uuid>';
-```
-
-Admin accounts:
-- Have `tier = 'admin'` (10 turns/session, 20 credits/month)
-- Can access `/admin` panel
-- Cannot use the Crucible (blocked at the UI level)
-- "Enter the Crucible" button is hidden in the header
 
 ---
 
@@ -906,8 +618,10 @@ Admin accounts:
 
 - All secrets in environment variables — never committed to source control
 - Supabase RLS enforces row-level access on all tables
-- Admin endpoints query `is_admin` from the database on every request — it is not stored in the JWT
+- Admin endpoints query `is_admin` from the database on every request — not stored in JWT
+- User LLM API keys stored in `profiles.llm_api_key` — never returned to the frontend (status-only endpoint)
 - Input cap: 500 words per Crucible message, enforced on the backend
 - CORS restricted to explicit origins via `FRONTEND_URL`
-- Stripe webhook signature verified on every inbound webhook call
+- Stripe webhook signature verified on every inbound call
 - Monthly Anthropic spend cap configurable via `MONTHLY_SPEND_CAP_GBP`
+- Crisis keyword check runs before any AI call — cannot be bypassed by prompt injection

@@ -25,7 +25,7 @@ async def subscribe(body: SubscribeRequest, user=Depends(get_current_user)):
     user_auth = db.supabase_admin.auth.admin.get_user_by_id(user.id)
     email = user_auth.user.email if user_auth.user else None
 
-    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173").split(",")[0].strip()
     url, _ = stripe_svc.create_subscription_checkout(user.id, body.tier, frontend_url, email)
     return {"checkout_url": url}
 
@@ -43,7 +43,7 @@ async def extend_turns(body: dict, user=Depends(get_current_user)):
     if not session_id:
         raise HTTPException(status_code=400, detail="session_id required")
 
-    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173").split(",")[0].strip()
     url, _ = stripe_svc.create_turn_extension_checkout(user.id, session_id, frontend_url)
     return {"checkout_url": url}
 

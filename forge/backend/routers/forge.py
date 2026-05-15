@@ -325,7 +325,7 @@ async def extend_session(body: CrucibleExtendRequest, user=Depends(get_current_u
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173").split(",")[0].strip()
     url, checkout_id = stripe_svc.create_turn_extension_checkout(user.id, body.session_id, frontend_url)
     return {"checkout_url": url, "checkout_id": checkout_id}
 

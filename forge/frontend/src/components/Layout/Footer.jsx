@@ -8,6 +8,10 @@ export default function Footer() {
       fontSize: '0.8rem',
       color: 'var(--gray)',
     }}>
+      <span style={{ display: 'block', marginBottom: 6 }}>
+        For brainstorming only. Users are responsible for their own decisions.
+        AI may hallucinate or provide inaccurate information.
+      </span>
       Powered by{' '}
       <a
         href="https://www.anthropic.com/claude"

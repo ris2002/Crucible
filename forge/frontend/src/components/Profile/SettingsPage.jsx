@@ -160,8 +160,8 @@ export default function SettingsPage() {
 
   async function handleCancel() {
     const msg = tier === 'alchemist'
-      ? 'Cancel your subscription? Your tier drops to free, your stored API key will be permanently deleted, and your banked credits stay.'
-      : 'Cancel your subscription? Your tier drops to free immediately but all your banked credits stay.'
+      ? 'Cancel your subscription? You keep access until the end of your billing period, then your tier drops to free and your stored API key will be permanently deleted. Your banked credits stay.'
+      : 'Cancel your subscription? You keep access until the end of your billing period, then your tier drops to free. Your banked credits stay.'
     if (!window.confirm(msg)) return
     try {
       await api.cancelSubscription()

@@ -131,16 +131,10 @@ def cancel_subscription(user_id: str):
     subscriptions = stripe.Subscription.list(customer=customer_id, status="active")
     cancelled = False
     for sub in subscriptions.data:
-        stripe.Subscription.cancel(sub.id)
+        stripe.Subscription.modify(sub.id, cancel_at_period_end=True)
         cancelled = True
 
-    if cancelled:
-        profile = get_profile(user_id)
-        updates = {"tier": "free", "credits_monthly": 3}
-        if profile and profile.get("tier") == "alchemist":
-            updates["llm_api_key"] = None
-        supabase_admin.table("profiles").update(updates).eq("id", user_id).execute()
-
+    # Tier stays active until period end — webhook customer.subscription.deleted fires then
     return cancelled
 
 

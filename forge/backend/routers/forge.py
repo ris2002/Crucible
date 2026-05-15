@@ -10,6 +10,7 @@ from models import (
 from services import supabase_service as db
 from services import anthropic_service as ai
 from services import stripe_service as stripe_svc
+from services.crisis_check import is_crisis, CRISIS_RESPONSE
 
 router = APIRouter()
 
@@ -52,6 +53,16 @@ async def start_forge_session(body: CrucibleStartRequest, user=Depends(get_curre
 async def send_forge_message(body: CrucibleMessageRequest, user=Depends(get_current_user)):
     if len(body.message.split()) > 500:
         raise HTTPException(status_code=400, detail="Message exceeds 500-word limit")
+
+    if is_crisis(body.message):
+        return {
+            "reply": CRISIS_RESPONSE,
+            "turns_used": 0,
+            "max_turns": 0,
+            "forge_ready": False,
+            "warning": False,
+            "crisis": True,
+        }
 
     session = db.get_forge_session(body.session_id, user.id)
     if not session:
@@ -125,6 +136,16 @@ async def send_forge_message(body: CrucibleMessageRequest, user=Depends(get_curr
 async def stream_forge_message(body: CrucibleMessageRequest, user=Depends(get_current_user)):
     if len(body.message.split()) > 500:
         raise HTTPException(status_code=400, detail="Message exceeds 500-word limit")
+
+    if is_crisis(body.message):
+        async def crisis_stream():
+            yield f"data: {json.dumps({'text': CRISIS_RESPONSE})}\n\n"
+            yield f"data: {json.dumps({'done': True, 'turns_used': 0, 'max_turns': 0, 'forge_ready': False, 'warning': False, 'crisis': True})}\n\n"
+        return StreamingResponse(
+            crisis_stream(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
 
     session = db.get_forge_session(body.session_id, user.id)
     if not session:

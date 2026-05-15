@@ -93,7 +93,7 @@ export default function ForgeChat({ session: initialSession, onComplete }) {
 
   const { purchases_enabled: purchasesEnabled } = usePurchases()
   const { refresh: refreshCredits } = useCredits()
-  const { session, messages, sending, forgeReady, draft, setDraft, warning, error } = forge
+  const { session, messages, sending, forgeReady, draft, setDraft, warning, crisis, error } = forge
   const turnLimitReached = !forgeReady && session && (session.turns_used || 0) >= (session.max_turns || 5)
 
   if (!session) return null
@@ -241,7 +241,7 @@ export default function ForgeChat({ session: initialSession, onComplete }) {
                 ? "Describe your idea, as rough as you like..."
                 : "Your answer..."
               }
-              disabled={sending || turnLimitReached}
+              disabled={sending || turnLimitReached || crisis}
               rows={2}
             />
             {input.split(/\s+/).filter(Boolean).length > 450 && (
@@ -253,7 +253,7 @@ export default function ForgeChat({ session: initialSession, onComplete }) {
           <button
             className="btn btn-primary"
             type="submit"
-            disabled={sending || !input.trim() || input.split(/\s+/).filter(Boolean).length > 500 || turnLimitReached}
+            disabled={sending || !input.trim() || input.split(/\s+/).filter(Boolean).length > 500 || turnLimitReached || crisis}
             style={{ flexShrink: 0 }}
           >
             {sending ? '...' : 'Send →'}

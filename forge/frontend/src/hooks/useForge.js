@@ -20,6 +20,7 @@ export function useForge() {
   const [forgeReady, setForgeReady] = useState(cached?.forgeReady || false)
   const [draft, setDraft] = useState(cached?.draft || null)
   const [warning, setWarning] = useState(false)
+  const [crisis, setCrisis] = useState(false)
   const [error, setError] = useState(null)
 
   const saveCache = useCallback((session, messages, forgeReady, draft) => {
@@ -123,6 +124,10 @@ export function useForge() {
             })
           }
 
+          if (data.crisis) {
+            setCrisis(true)
+          }
+
           if (data.done) {
             setSession(prev => {
               const updated = { ...prev, turns_used: data.turns_used, max_turns: data.max_turns }
@@ -197,6 +202,7 @@ export function useForge() {
     draft,
     setDraft,
     warning,
+    crisis,
     error,
     startSession,
     sendMessage,

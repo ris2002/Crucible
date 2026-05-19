@@ -1,5 +1,5 @@
 # CRUCIBLE — Intellectual Ideas Platform
-
+Link-https://idea-forge-beryl-phi.vercel.app/
 A full-stack platform for forging, sharing, and discussing ideas. Users converse with an AI thinking partner (the Crucible) across 8 intellectual genres to develop rough thoughts into publishable ideas. The platform includes a social feed, comments, sparks, follows, a credit/subscription system, and a full admin panel.
 
 ---

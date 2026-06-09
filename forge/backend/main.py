@@ -30,4 +30,10 @@ app.include_router(admin.router, prefix="/admin", tags=["admin"])
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    try:
+        from services.supabase_service import supabase_admin
+        supabase_admin.table("profiles").select("id").limit(1).execute()
+        db = "ok"
+    except Exception:
+        db = "error"
+    return {"status": "ok", "db": db}

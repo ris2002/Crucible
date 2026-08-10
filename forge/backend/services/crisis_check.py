@@ -3,7 +3,7 @@ import re
 _PATTERNS = [
     r"\bkill myself\b",
     r"\bkilling myself\b",
-    r"\bend my life\b",
+    r"\bend(?:ing)? my life\b",
     r"\btake my life\b",
     r"\bend it all\b",
     r"\bwant to die\b",

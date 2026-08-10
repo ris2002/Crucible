@@ -45,3 +45,8 @@ Thumbs.db
 
 # PDF spec (optional — remove this line if you want to include it)
 *.pdf
+
+# Local-only test scaffolding (kept out of the public repo)
+forge/backend/tests/
+forge/backend/pytest.ini
+

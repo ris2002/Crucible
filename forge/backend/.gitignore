@@ -25,3 +25,6 @@ build/
 *.swp
 *.swo
 .DS_Store
+
+# Personal recode/relearn scratch (not project code)
+relearn/

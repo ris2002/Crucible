@@ -339,9 +339,16 @@ Shown in the Forge banner (at session start) and the site footer:
 
 ## Testing
 
-A local pytest suite (`forge/backend/tests/`) covers the AI-facing logic that's hardest to get right by inspection alone: structured-output parsing, the crisis guardrail, multi-provider routing, and cost controls. All provider clients (Anthropic/OpenAI/Google) are mocked — no live API calls or spend.
+A pytest suite (`forge/backend/tests/`) covers the AI-facing logic that's hardest to get right by inspection alone: structured-output parsing, the crisis guardrail, multi-provider routing, and cost controls. All provider clients (Anthropic/OpenAI/Google) are mocked — no live API calls or spend.
 
-**Latest run: 34/34 passed** (`pytest -v`, ~1s runtime).
+```bash
+cd forge/backend
+source venv/bin/activate
+pip install pytest pytest-asyncio
+pytest -v
+```
+
+**Latest run: 34/34 passed** (~1s runtime).
 
 | Suite | Tests | Focus |
 |---|---|---|
@@ -355,8 +362,6 @@ A local pytest suite (`forge/backend/tests/`) covers the AI-facing logic that's 
 Writing the crisis-guardrail tests surfaced a real false negative: the pattern `\bend my life\b` required the exact word "end", so the natural paraphrase **"I've been thinking about ending my life"** slipped through undetected. Fixed by broadening the pattern to `\bend(?:ing)? my life\b` in `crisis_check.py`.
 
 A second, lower-severity finding remains open: the idiom "cut myself some slack" triggers the self-harm pattern `\bcut myself\b` as a false positive. Left as-is by design — for a safety filter, over-caution is a cheaper failure mode than a miss.
-
-**Note:** the `tests/` directory and `pytest.ini` are excluded from version control via `.gitignore`; this section is the record of that work and its results.
 
 ---
 
